@@ -1,0 +1,10 @@
+name: uthsc-app
+title:
+username: arnab96
+account: arnab96
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 15031600
+bundleId:
+url: https://arnab96.shinyapps.io/uthsc-app/
+version: 1
