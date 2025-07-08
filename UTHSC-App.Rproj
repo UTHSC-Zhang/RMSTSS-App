@@ -1,6 +1,6 @@
 Version: 1.0
 
-RestoreWorkspace: Default
+RestoreWorkspace: Yes
 SaveWorkspace: Default
 AlwaysSaveHistory: Default
 
@@ -11,3 +11,5 @@ Encoding: UTF-8
 
 RnwWeave: Sweave
 LaTeX: pdfLaTeX
+
+ZoteroLibraries: "My Library"
