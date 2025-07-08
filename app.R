@@ -217,32 +217,34 @@ server <- function(input, output, session) {
   })
   
   # --- B. UI Interactivity and Event Handlers ---
-  observeEvent(input$model_selection, {
-    run_output(list(results = NULL, log = "Analysis has not been run yet."))
-  }, ignoreInit = TRUE)
   
+  # This single observer manages the visibility and enabled state of UI elements
+  # based on whether data has been uploaded.
   observe({
-    req(pilot_data_reactive())
-    shinyjs::enable("col_mapping_ui"); shinyjs::enable("model_selection")
-    shinyjs::enable("tau"); shinyjs::enable("alpha")
-    shinyjs::show("analysis_params_panel")
+    # This is the main condition: is data uploaded and valid?
+    data_is_present <- !is.null(pilot_data_reactive()) && nrow(pilot_data_reactive()) > 0
     
-    req(input$model_selection)
-    shinyjs::enable("method_selection_ui"); shinyjs::enable("analysis_type")
-    shinyjs::enable("analysis_inputs_ui"); shinyjs::enable("bootstrap_options_ui")
-    shinyjs::enable("run_analysis")
+    # Use shinyjs::toggle to show or hide the entire analysis parameters panel.
+    shinyjs::toggle("analysis_params_panel", condition = data_is_present)
+    
+    # The "Run Analysis" button is only enabled if data is present AND a model is selected.
+    run_button_enabled <- data_is_present && !is.null(input$model_selection) && input$model_selection != ""
+    shinyjs::toggleState("run_analysis", condition = run_button_enabled)
   })
   
+  # This observer handles the "Reset All" button click.
   observeEvent(input$reset_inputs, {
-    run_output(list(results = NULL, log = "Analysis has not been run yet."))
+    # 1. Reset the file input control. This will trigger the observer below.
     shinyjs::reset("pilot_data_upload")
-    shinyjs::hide("analysis_params_panel")
-    shinyjs::disable("col_mapping_ui"); shinyjs::disable("model_selection")
-    shinyjs::disable("method_selection_ui"); shinyjs::disable("tau")
-    shinyjs::disable("analysis_type"); shinyjs::disable("analysis_inputs_ui")
-    shinyjs::disable("alpha"); shinyjs::disable("bootstrap_options_ui")
-    shinyjs::disable("run_analysis")
+    
+    # 2. Explicitly reset the value of the model selection dropdown to the default.
+    updateSelectInput(session, "model_selection", selected = "Linear IPCW Model")
   })
+  
+  # This observer clears the output panels whenever the data or model changes.
+  observeEvent(list(input$pilot_data_upload, input$model_selection), {
+    run_output(list(results = NULL, log = "Analysis has not been run yet."))
+  }, ignoreInit = TRUE) # ignoreInit prevents this from running when the app first starts.
   
   # --- C. Core Analysis Logic ---
   
