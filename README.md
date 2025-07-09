@@ -6,7 +6,7 @@ This repository contains the source code for the `RMSTdesign` web application, a
 
 -----
 
-## \#\# Access the Live Application
+## Access the Live Application
 
 The easiest way to use the calculator is to access the live, deployed version directly in your web browser. No installation is required.
 
