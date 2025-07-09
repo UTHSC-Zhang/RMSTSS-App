@@ -1,0 +1,42 @@
+name: Sync .R and .Rmd files to UTHSC-package repo
+
+on:
+  push:
+    branches:
+      - main  # or your default branch
+
+jobs:
+  sync-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout UTHSC-App repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Git
+        run: |
+          git config --global arnabaich96 "github-actions[bot]"
+          git config --global arnab.aich96@gmail.com "github-actions[bot]@users.noreply.github.com"
+
+      - name: Clone UTHSC-package repo
+        env:
+          TOKEN: ${{ secrets.PACKAGE_REPO_TOKEN }}
+        run: |
+          git clone https://x-access-token:${TOKEN}@github.com:UTHSC-Zhang/RMSTSS-Package.git
+
+      - name: Sync .R and .Rmd files to UTHSC-package
+        run: |
+          rsync -av --include '*/' --include '*.R' --include '*.Rmd' --exclude '*' ./ RMSTSS-Package/inst/shiny_app/
+
+      - name: Commit and push changes
+        working-directory: UTHSC-package
+        run: |
+          git add inst/shiny_app
+          if ! git diff --cached --quiet; then
+            git commit -m "Sync .R and .Rmd files from UTHSC-App on $(date +'%Y-%m-%d %H:%M:%S')"
+            git push origin main
+          else
+            echo "No changes to commit"
+          fi
