@@ -3,7 +3,7 @@ name: Sync .R and .Rmd files to UTHSC-package repo
 on:
   push:
     branches:
-      - main  
+      - main  # or your default branch
 
 jobs:
   sync-package:
@@ -26,17 +26,26 @@ jobs:
         run: |
           git clone https://x-access-token:${TOKEN}@github.com/UTHSC-Zhang/RMSTSS-Package.git
 
-      - name: Sync .R and .Rmd files to UTHSC-package
+      - name: Debug: List package repo root before sync
+        run: ls -la RMSTSS-Package
+
+      - name: Sync .R and .Rmd files to UTHSC-package inst/shiny_app
         run: |
           rsync -av --include '*/' --include '*.R' --include '*.Rmd' --exclude '*' ./ RMSTSS-Package/inst/shiny_app/
+
+      - name: Debug: List shiny_app content after sync
+        run: ls -la RMSTSS-Package/inst/shiny_app
 
       - name: Commit and push changes
         working-directory: RMSTSS-Package
         run: |
+          git status
           git add inst/shiny_app
+          git status
           if ! git diff --cached --quiet; then
             git commit -m "Sync .R and .Rmd files from UTHSC-App on $(date +'%Y-%m-%d %H:%M:%S')"
             git push origin main
           else
             echo "No changes to commit"
           fi
+
