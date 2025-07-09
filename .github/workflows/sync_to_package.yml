@@ -3,7 +3,7 @@ name: Sync .R and .Rmd files to UTHSC-package repo
 on:
   push:
     branches:
-      - main  # or your default branch
+      - main
 
 jobs:
   sync-package:
@@ -48,4 +48,3 @@ jobs:
           else
             echo "No changes to commit"
           fi
-
