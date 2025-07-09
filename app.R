@@ -8,7 +8,10 @@ library(kableExtra)
 library(DT)
 library(bslib)
 library(survival)
-library(survminer) # For creating ggplot-based survival plots
+library(survminer) 
+library(rmarkdown) 
+library(knitr)
+library(tinytex)
 
 # Source all R files in the R/ directory
 r_files <- list.files(path = "R/", pattern = "\\.R$", full.names = TRUE)
@@ -19,7 +22,6 @@ cat("All R scripts in the 'R/' directory have been sourced.\n")
 ui <- fluidPage(
   theme = bs_theme(version = 5, bootswatch = "flatly"),
   useShinyjs(),
-  
   titlePanel("RMSTdesign: Power and Sample Size Calculator"),
   
   sidebarLayout(
@@ -293,7 +295,6 @@ server <- function(input, output, session) {
         })
         
         main_calc_results$logrank_summary <- logrank_summary_df
-        # **MODIFIED**: Only pass the data for plotting, not the fit object
         main_calc_results$analysis_data_for_plot <- analysis_data_for_plot
         
         return(main_calc_results)
@@ -323,13 +324,10 @@ server <- function(input, output, session) {
     DT::datatable(pilot_data_reactive(), options = list(pageLength = 5, scrollX = TRUE), rownames = FALSE)
   })
   
-  # **FIXED**: Renders the interactive survival plot
   output$survival_plotly_output <- renderPlotly({
-    # **MODIFIED**: Depends only on the standardized plot data
     req(run_output()$results$analysis_data_for_plot)
     plot_data <- run_output()$results$analysis_data_for_plot
     
-    # **MODIFIED**: Create the survfit object locally within the renderer
     fit <- survfit(Surv(time, status) ~ arm, data = plot_data)
     
     p <- ggsurvplot(
@@ -387,32 +385,51 @@ server <- function(input, output, session) {
     tagList(
       hr(),
       h4("Generate Analysis Report"),
-      p("Click the button below to download a complete HTML report of your analysis."),
-      downloadButton("download_report", "Download Report")
+      p("Click the button below to download a complete PDF report of your analysis."),
+      downloadButton("download_report", "Download PDF Report")
     )
   })
   
+  # --- MODIFIED: Report Generation Logic for PDF ---
   output$download_report <- downloadHandler(
-    filename = function() { paste0("RMSTdesign_report_", Sys.Date(), ".html") },
+    filename = function() {
+      paste0("RMSTdesign_report_", Sys.Date(), ".pdf")
+    },
     content = function(file) {
       req(run_output()$results)
-      withProgress(message = 'Generating Report...', value = 0, {
-        
-        incProgress(0.2, detail = "Gathering inputs...")
-        method <- if (!is.null(input$calc_method) && input$calc_method == "Bootstrap") {"Bootstrap"} else if (input$model_selection %in% c("Semiparametric (GAM) Model", "Additive Stratified Model")) {"Bootstrap"} else {"Analytical"}
-        
-        report_inputs <- list(
-          model_selection = input$model_selection, analysis_type = input$analysis_type,
-          method = method, tau = input$tau, alpha = input$alpha,
-          sample_sizes = input$sample_sizes, target_power = input$target_power,
-          n_sim = input$n_sim, n_cores = input$n_cores)
-        
-        report_params <- list(inputs = report_inputs, results = run_output()$results, log = run_output()$log)
-        
-        incProgress(0.6, detail = "Rendering document...")
-        rmarkdown::render("report_template.Rmd", output_file = file,
-                          params = report_params, envir = new.env(parent = globalenv()))
-      })
+      
+      # Show a notification that the report is being generated
+      id <- showNotification("Generating PDF report... This may take a moment.",
+                             duration = NULL, closeButton = FALSE, type = "message")
+      on.exit(removeNotification(id), add = TRUE)
+      
+      # Gather all inputs for the report parameters
+      report_inputs <- list(
+        model_selection = input$model_selection,
+        analysis_type = input$analysis_type,
+        time_var = input$time_var,
+        status_var = input$status_var,
+        arm_var = input$arm_var,
+        tau = input$tau,
+        alpha = input$alpha,
+        sample_sizes = input$sample_sizes,
+        target_power = input$target_power
+      )
+      
+      # Create the list of parameters to pass to the Rmd file
+      report_params <- list(
+        inputs = report_inputs,
+        results = run_output()$results,
+        log = run_output()$log
+      )
+      
+      # Render the Rmd file
+      rmarkdown::render(
+        "report_template.Rmd",
+        output_file = file,
+        params = report_params,
+        envir = new.env(parent = globalenv()) # Use a clean environment
+      )
     }
   )
 }

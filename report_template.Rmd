@@ -1,0 +1,90 @@
+
+---
+title: "RMSTdesign Analysis Report"
+output: pdf_document
+params:
+  inputs: NA
+  results: NA
+  log: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(ggplot2)
+library(survival)
+library(survminer)
+library(kableExtra)
+```
+
+# Analysis Configuration
+
+This report summarizes the power or sample size analysis performed using the RMSTdesign application.
+
+```{r input-parameters}
+inputs_df <- data.frame(
+  Parameter = names(params$inputs),
+  Value = unlist(lapply(params$inputs, function(x) paste(x, collapse = ", ")))
+)
+
+kbl(inputs_df, 
+    booktabs = TRUE, 
+    caption = "Analysis Input Parameters",
+    col.names = c("Parameter", "Value")) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+# Survival Analysis of Pilot Data
+
+The following plot and table are based on the survival analysis of the uploaded pilot data, using the log-rank test.
+
+```{r km-plot, eval = !is.null(params$results$analysis_data_for_plot)}
+plot_data <- params$results$analysis_data_for_plot
+fit <- survfit(Surv(time, status) ~ arm, data = plot_data)
+
+p <- ggsurvplot(
+  fit,
+  data = plot_data,
+  palette = c("#007BFF", "#D9534F"),
+  legend.title = params$inputs$arm_var,
+  xlab = paste("Time (in units of '", params$inputs$time_var, "')"),
+  ylab = "Survival Probability",
+  ggtheme = theme_light()
+)
+
+p$plot
+```
+
+```{r logrank-summary, eval = !is.null(params$results$logrank_summary)}
+kbl(params$results$logrank_summary, 
+    booktabs = TRUE, 
+    caption = "Log-Rank Test Results on Pilot Data") %>%
+  kable_styling(latex_options = "hold_position")
+```
+
+# Power and Sample Size Analysis
+
+```{r power-curve, eval = !is.null(params$results$results_plot)}
+params$results$results_plot
+```
+
+```{r results-table, eval = !is.null(params$results$results_data)}
+kbl(params$results$results_data, 
+    booktabs = TRUE, 
+    caption = "Power/Sample Size Calculation Results") %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+```{r effect-size, eval = !is.null(params$results$results_summary)}
+kbl(params$results$results_summary, 
+    booktabs = TRUE, 
+    caption = "Effect Size Summary from Pilot Data") %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+# Console Log
+
+The following is the complete console log generated during the analysis.
+
+```{r console-log, results='asis', eval = !is.null(params$log)}
+cat(params$log)
+```
