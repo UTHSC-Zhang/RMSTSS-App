@@ -7,6 +7,8 @@ library(plotly)
 library(kableExtra)
 library(DT)
 library(bslib)
+library(survival)
+library(survminer) # For creating ggplot-based survival plots
 
 # Source all R files in the R/ directory
 r_files <- list.files(path = "R/", pattern = "\\.R$", full.names = TRUE)
@@ -16,12 +18,11 @@ cat("All R scripts in the 'R/' directory have been sourced.\n")
 # --- UI Definition ---
 ui <- fluidPage(
   theme = bs_theme(version = 5, bootswatch = "flatly"),
-  useShinyjs(), 
+  useShinyjs(),
   
   titlePanel("RMSTdesign: Power and Sample Size Calculator"),
   
   sidebarLayout(
-    # REVISED: Reorganized sidebar panel
     sidebarPanel(
       width = 4,
       
@@ -29,8 +30,8 @@ ui <- fluidPage(
         h4("1. Setup & Model"),
         fileInput("pilot_data_upload", "Upload Pilot Data (.csv)", accept = ".csv"),
         selectInput("model_selection", "Select RMST Model",
-                    choices = c("Linear IPCW Model", 
-                                "Additive Stratified Model", 
+                    choices = c("Linear IPCW Model",
+                                "Additive Stratified Model",
                                 "Multiplicative Stratified Model",
                                 "Semiparametric (GAM) Model",
                                 "Dependent Censoring Model"))
@@ -40,31 +41,28 @@ ui <- fluidPage(
         h4("2. Column Mapping"),
         uiOutput("col_mapping_ui")
       ),
-
+      
       wellPanel(
         h4("3. Analysis Parameters"),
         shinyjs::hidden(
-          div(id = "analysis_params_panel",       
-        # This fluidRow will contain the three inputs side-by-side
-        fluidRow(
-          column(4,
-                 radioButtons("analysis_type", "Target Quantity",
-                              choices = c("Power", "Sample Size"), 
-                              selected = "Power")
-          ),
-          column(4,
-                 # This will render the Analytical/Bootstrap radio buttons
-                 uiOutput("method_selection_ui") 
-          ),
-          column(4,
-                 numericInput("tau", "RMST Tau (τ)", value = 365, min = 1)
-          )
-        ), # End of fluidRow
-        
-        # The other inputs remain below
-        uiOutput("analysis_inputs_ui"),
-        sliderInput("alpha", "Significance Level (α)", min = 0.01, max = 0.1, value = 0.05, step = 0.01)
-      )))
+          div(id = "analysis_params_panel",
+              fluidRow(
+                column(4,
+                       radioButtons("analysis_type", "Target Quantity",
+                                    choices = c("Power", "Sample Size"),
+                                    selected = "Power")
+                ),
+                column(4,
+                       uiOutput("method_selection_ui")
+                ),
+                column(4,
+                       numericInput("tau", "RMST Tau (τ)", value = 365, min = 1)
+                )
+              ),
+              
+              uiOutput("analysis_inputs_ui"),
+              sliderInput("alpha", "Significance Level (α)", min = 0.01, max = 0.1, value = 0.05, step = 0.01)
+          )))
       ,
       uiOutput("bootstrap_options_ui"),
       
@@ -75,10 +73,9 @@ ui <- fluidPage(
     
     mainPanel(
       width = 8,
-      # REVISED: Reorganized tabset panel
       tabsetPanel(
         id = "main_tabs",
-        tabPanel("Instructions", 
+        tabPanel("Instructions",
                  h3("Welcome to RMSTdesign!"),
                  p("This application allows you to perform power and sample size calculations for clinical trials using Restricted Mean Survival Time (RMST)."),
                  tags$ol(
@@ -89,7 +86,16 @@ ui <- fluidPage(
                  )
         ),
         tabPanel("Data Preview", DT::dataTableOutput("data_preview_table")),
-        tabPanel("Plot Output", plotlyOutput("results_plot", height = "600px")),
+        
+        tabPanel("Plot Output",
+                 h4("Kaplan-Meier Survival Plot (Pilot Data)"),
+                 p("This plot shows the survival probability over time for each treatment arm. You can hover over the lines for details."),
+                 plotlyOutput("survival_plotly_output", height = "500px"),
+                 hr(),
+                 h4("Power vs. Sample Size Curve"),
+                 p("This plot shows the calculated power for different sample sizes, or the required sample size for the target power."),
+                 plotlyOutput("results_plot", height = "500px")
+        ),
         
         tabPanel("Summary",
                  h4("Analysis Results"),
@@ -97,21 +103,14 @@ ui <- fluidPage(
                  hr(),
                  h4("Effect Size Summary"),
                  p("This summary is derived from the pilot data and forms the basis for the power/sample size calculation."),
-                 uiOutput("summary_table_ui")
+                 uiOutput("summary_table_ui"),
+                 
+                 uiOutput("logrank_summary_ui"),
+                 
+                 uiOutput("download_button_ui")
         ),
         
-        tabPanel("Console Log", verbatimTextOutput("console_log_output")),
-        
-        tabPanel("Model Diagnostics",
-                 h4("Diagnostic Plots for Pilot Data Models"),
-                 p("These plots help assess the assumptions of the models fitted to your pilot data. ",
-                   "If assumptions are violated, the power calculations may be less reliable."),
-                 uiOutput("diagnostics_ui"),
-                 hr(),
-                 h4("Generate Analysis Report"),
-                 p("Click the button below to download a complete HTML report of your analysis."),
-                 downloadButton("download_report", "Download Report")
-        )
+        tabPanel("Console Log", verbatimTextOutput("console_log_output"))
       )
     )
   )
@@ -119,9 +118,8 @@ ui <- fluidPage(
 
 # --- Server Definition ---
 server <- function(input, output, session) {
-  # Enable live theming
   bslib::bs_themer()
-  # --- A. Reactive Data and Dynamic UI ---
+  
   pilot_data_reactive <- reactive({
     req(input$pilot_data_upload)
     tryCatch(read.csv(input$pilot_data_upload$datapath), error = function(e) {
@@ -134,33 +132,23 @@ server <- function(input, output, session) {
     column_names <- names(df)
     
     tagList(
-      # --- ROW 1: Core Variables ---
       fluidRow(
         column(4, selectInput("time_var", "Time-to-Event", choices = column_names ,selected = column_names[2]   )),
         column(4, selectInput("status_var", "Status (1=event)", choices = column_names, selected = column_names[3])),
         column(4, selectInput("arm_var", "Treatment Arm (1=treat)", choices = column_names, selected = column_names[4]))
       ),
-      
-      # --- ROW 2: Conditional Model Variables ---
       fluidRow(
-        # This column shows only for stratified models
         if (input$model_selection %in% c("Additive Stratified Model", "Multiplicative Stratified Model", "Semiparametric (GAM) Model")) {
           column(6, selectInput("strata_var", "Stratification Variable", choices = column_names, selected = column_names[5]))
         },
-        
-        # This column shows only for the dependent censoring model
         if (input$model_selection == "Dependent Censoring Model") {
           column(6, selectInput("dep_cens_var", "Dependent Censoring Status", choices = column_names, selected = column_names[5]))
         }
       ),
-      
-      # --- ROW 3: Covariates ---
       fluidRow(
-        column(6, 
+        column(6,
                selectizeInput("linear_terms", "Linear Covariates", choices = column_names, multiple = TRUE)
         ),
-        
-        # This column shows only for the GAM model
         column(6,
                if (input$model_selection == "Semiparametric (GAM) Model") {
                  selectizeInput("smooth_terms", "Non-Linear (Smooth) Covariates", choices = column_names, multiple = TRUE)
@@ -184,21 +172,15 @@ server <- function(input, output, session) {
     }
   })
   
-  # In app.R -> server function
-  
   output$bootstrap_options_ui <- renderUI({
-    
     is_bootstrap_choice <- !is.null(input$calc_method) &&
       input$calc_method == "Bootstrap" &&
       input$model_selection %in% c("Linear IPCW Model", "Multiplicative Stratified Model")
-    
-    is_always_bootstrap <- input$model_selection == "Semiparametric (GAM) Model"
+    is_always_bootstrap <- input$model_selection %in% c("Semiparametric (GAM) Model", "Additive Stratified Model")
     
     if (is_bootstrap_choice || is_always_bootstrap) {
       wellPanel(
         h4("Bootstrap Options"),
-        
-        # Row 1: Sample size search parameters (conditional)
         if (input$analysis_type == "Sample Size") {
           fluidRow(
             column(4, numericInput("n_start", "Start N", value = 50, min = 10)),
@@ -206,8 +188,6 @@ server <- function(input, output, session) {
             column(4, numericInput("n_step", "Step", value = 25, min = 5))
           )
         },
-        
-        # Row 2: General simulation parameters
         fluidRow(
           column(6, numericInput("n_sim", "Simulations", value = 500, min = 100, step = 100)),
           column(6, numericInput("n_cores", "Parallel Cores", value = 1, min = 1))
@@ -216,40 +196,23 @@ server <- function(input, output, session) {
     }
   })
   
-  # --- B. UI Interactivity and Event Handlers ---
-  
-  # This single observer manages the visibility and enabled state of UI elements
-  # based on whether data has been uploaded.
   observe({
-    # This is the main condition: is data uploaded and valid?
     data_is_present <- !is.null(pilot_data_reactive()) && nrow(pilot_data_reactive()) > 0
-    
-    # Use shinyjs::toggle to show or hide the entire analysis parameters panel.
     shinyjs::toggle("analysis_params_panel", condition = data_is_present)
-    
-    # The "Run Analysis" button is only enabled if data is present AND a model is selected.
     run_button_enabled <- data_is_present && !is.null(input$model_selection) && input$model_selection != ""
     shinyjs::toggleState("run_analysis", condition = run_button_enabled)
   })
   
-  # This observer handles the "Reset All" button click.
   observeEvent(input$reset_inputs, {
-    # 1. Reset the file input control. This will trigger the observer below.
     shinyjs::reset("pilot_data_upload")
-    
-    # 2. Explicitly reset the value of the model selection dropdown to the default.
     updateSelectInput(session, "model_selection", selected = "Linear IPCW Model")
   })
   
-  # This observer clears the output panels whenever the data or model changes.
   observeEvent(list(input$pilot_data_upload, input$model_selection), {
     run_output(list(results = NULL, log = "Analysis has not been run yet."))
-  }, ignoreInit = TRUE) # ignoreInit prevents this from running when the app first starts.
-  
-  # --- C. Core Analysis Logic ---
+  }, ignoreInit = TRUE)
   
   run_analysis_results <- reactive({
-    
     validate(need(pilot_data_reactive(), "Please upload pilot data."))
     validate(need(input$time_var, "Please map Time-to-Event column."))
     validate(need(input$status_var, "Please map Status column."))
@@ -276,12 +239,11 @@ server <- function(input, output, session) {
         if (model_prefix %in% c("additive", "MS", "GAM")) { req(input$strata_var); args$strata_var <- input$strata_var }
         if (model_prefix == "DC") { req(input$dep_cens_var); args$dep_cens_status_var <- input$dep_cens_var }
         if (model_prefix == "GAM" && !is.null(input$smooth_terms) && length(input$smooth_terms) > 0) { args$smooth_terms <- input$smooth_terms }
-        if (method_suffix == "boot") { 
+        if (method_suffix == "boot") {
           req(input$n_sim, input$n_cores)
           args$n_sim <- input$n_sim
           args$parallel.cores <- input$n_cores
           
-          # Add the sample size search parameters ONLY if it's a bootstrap SS search
           if(func_type == "ss"){
             req(input$n_start, input$max_n_per_arm, input$n_step)
             args$n_start <- input$n_start
@@ -292,24 +254,62 @@ server <- function(input, output, session) {
         
         setProgress(0.4, detail = paste("Calling function:", function_to_call_name))
         
-        tryCatch({
+        main_calc_results <- tryCatch({
           do.call(function_to_call_name, args)
         }, error = function(e) {
           showNotification(paste("Error:", e$message), type = "error", duration = NULL); NULL
         })
-      }) 
+        
+        setProgress(0.9, detail = "Performing survival analysis...")
+        
+        logrank_summary_df <- NULL
+        analysis_data_for_plot <- NULL
+        tryCatch({
+          cat("\n\n--- Survival Analysis on Pilot Data ---\n")
+          
+          analysis_data <- data.frame(
+            time = pilot_data_reactive()[[input$time_var]],
+            status = as.numeric(pilot_data_reactive()[[input$status_var]]),
+            arm = as.factor(pilot_data_reactive()[[input$arm_var]])
+          )
+          analysis_data_for_plot <- analysis_data
+          
+          fixed_formula <- as.formula("Surv(time, status) ~ arm")
+          
+          logrank_test <- survdiff(fixed_formula, data = analysis_data)
+          cat("Log-Rank Test:\n")
+          print(logrank_test)
+          
+          p_value <- 1 - pchisq(logrank_test$chisq, length(logrank_test$n) - 1)
+          logrank_summary_df <- data.frame(
+            Statistic = "Chi-Square",
+            Value = round(logrank_test$chisq, 3),
+            DF = length(logrank_test$n) - 1,
+            `P-Value` = format.pval(p_value, eps = .001, digits = 3)
+          )
+          
+        }, error = function(e) {
+          cat("\nError during survival analysis:", e$message, "\n")
+        })
+        
+        main_calc_results$logrank_summary <- logrank_summary_df
+        # **MODIFIED**: Only pass the data for plotting, not the fit object
+        main_calc_results$analysis_data_for_plot <- analysis_data_for_plot
+        
+        return(main_calc_results)
+      })
     }, type = c("output", "message"))
     
     return(list(results = analysis_results, log = paste(log_text, collapse = "\n")))
     
-  }) %>% 
+  }) %>%
     bindCache(
       pilot_data_reactive(), input$model_selection, input$analysis_type,
       input$time_var, input$status_var, input$arm_var,
       input$linear_terms, input$strata_var, input$dep_cens_var, input$smooth_terms,
       input$tau, input$alpha, input$sample_sizes, input$target_power,
       input$n_sim, input$n_cores, input$calc_method
-    ) %>% 
+    ) %>%
     bindEvent(input$run_analysis)
   
   run_output <- reactiveVal(list(results = NULL, log = "Analysis has not been run yet."))
@@ -318,10 +318,31 @@ server <- function(input, output, session) {
     run_output(run_analysis_results())
   })
   
-  # --- D. Render Outputs ---
   output$data_preview_table <- DT::renderDataTable({
     req(pilot_data_reactive())
     DT::datatable(pilot_data_reactive(), options = list(pageLength = 5, scrollX = TRUE), rownames = FALSE)
+  })
+  
+  # **FIXED**: Renders the interactive survival plot
+  output$survival_plotly_output <- renderPlotly({
+    # **MODIFIED**: Depends only on the standardized plot data
+    req(run_output()$results$analysis_data_for_plot)
+    plot_data <- run_output()$results$analysis_data_for_plot
+    
+    # **MODIFIED**: Create the survfit object locally within the renderer
+    fit <- survfit(Surv(time, status) ~ arm, data = plot_data)
+    
+    p <- ggsurvplot(
+      fit,
+      data = plot_data,
+      palette = c("#007BFF", "#D9534F"),
+      legend.title = input$arm_var,
+      xlab = paste("Time (in units of '", input$time_var, "')"),
+      ylab = "Survival Probability",
+      ggtheme = theme_light()
+    )
+    
+    ggplotly(p$plot)
   })
   
   output$results_plot <- renderPlotly({
@@ -331,16 +352,29 @@ server <- function(input, output, session) {
   
   output$results_table_ui <- renderUI({
     req(run_output()$results$results_data)
-    run_output()$results$results_data %>% 
-      kbl("html", caption = "Power/Sample Size Results") %>% 
+    run_output()$results$results_data %>%
+      kbl("html", caption = "Power/Sample Size Results") %>%
       kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>% HTML()
   })
   
   output$summary_table_ui <- renderUI({
     req(run_output()$results$results_summary)
-    run_output()$results$results_summary %>% 
-      kbl("html") %>% 
+    run_output()$results$results_summary %>%
+      kbl("html") %>%
       kable_styling(bootstrap_options = c("striped", "hover"), full_width = F) %>% HTML()
+  })
+  
+  output$logrank_summary_ui <- renderUI({
+    req(run_output()$results$logrank_summary)
+    tagList(
+      hr(),
+      h4("Log-Rank Test Summary (Pilot Data)"),
+      p("This is a non-parametric test comparing the survival distributions of the treatment arms from the pilot data."),
+      run_output()$results$logrank_summary %>%
+        kbl("html", booktabs = TRUE) %>%
+        kable_styling(bootstrap_options = c("striped", "hover"), full_width = F) %>%
+        HTML()
+    )
   })
   
   output$console_log_output <- renderText({
@@ -348,32 +382,16 @@ server <- function(input, output, session) {
     run_output()$log
   })
   
-  output$diagnostics_ui <- renderUI({
-    results <- run_output()$results; req(results)
-    if (!is.null(results$fit_lm)) {
-      tagList(h5("Linear Model (IPCW) Residuals"), plotOutput("diagnostic_plot_lm"))
-    } else if (!is.null(results$fit_cens)) {
-      tagList(
-        h5("Censoring Model: Proportional Hazards Check"),
-        p("This plot tests the proportional hazards assumption for the stratified Cox model fitted to the censoring distribution. A non-zero slope (i.e., a non-horizontal line) for a covariate suggests the assumption may be violated for that variable."),
-        plotOutput("diagnostic_plot_coxzph")
-      )
-    } else {
-      p("Diagnostic plots are not available for this model or the analysis has not been run.")
-    }
+  output$download_button_ui <- renderUI({
+    req(run_output()$results)
+    tagList(
+      hr(),
+      h4("Generate Analysis Report"),
+      p("Click the button below to download a complete HTML report of your analysis."),
+      downloadButton("download_report", "Download Report")
+    )
   })
   
-  output$diagnostic_plot_lm <- renderPlot({
-    fit <- run_output()$results$fit_lm; req(fit)
-    par(mfrow = c(2, 2)); plot(fit)
-  })
-  
-  output$diagnostic_plot_coxzph <- renderPlot({
-    fit <- run_output()$results$fit_cens; req(fit)
-    par(mfrow = c(1, 1)); plot(survival::cox.zph(fit))
-  })
-  
-  # --- E. Report Generation Logic ---
   output$download_report <- downloadHandler(
     filename = function() { paste0("RMSTdesign_report_", Sys.Date(), ".html") },
     content = function(file) {
@@ -399,5 +417,4 @@ server <- function(input, output, session) {
   )
 }
 
-# Run the application
 shinyApp(ui = ui, server = server)
