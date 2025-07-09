@@ -30,7 +30,7 @@ jobs:
       - name: Commit and push changes
         working-directory: RMSTSS-Package
         run: |
-          git add inst/shiny_app
+          git add .
           if ! git diff --cached --quiet; then
             git commit -m "Sync .R and .Rmd files from UTHSC-App on $(date +'%Y-%m-%d %H:%M:%S')"
             git push origin main
