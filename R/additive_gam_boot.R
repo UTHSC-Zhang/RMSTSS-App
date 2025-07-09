@@ -95,6 +95,7 @@
 }
 
 
+
 # Power Calculations -------------------------------------------------------
 
 #' @title Calculate Power for a Semiparametric Additive RMST Model via Simulation
