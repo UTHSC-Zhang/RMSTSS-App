@@ -3,12 +3,11 @@ name: Sync .R and .Rmd files to UTHSC-package repo
 on:
   push:
     branches:
-      - main  
+      - main
 
 jobs:
   sync-package:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout UTHSC-App repo
         uses: actions/checkout@v3
@@ -19,14 +18,24 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Clone UTHSC-package repo
         env:
           TOKEN: ${{ secrets.PACKAGE_REPO_TOKEN }}
         run: |
           git clone https://x-access-token:${TOKEN}@github.com/UTHSC-Zhang/RMSTSS-Package.git
+
       - name: Sync .R and .Rmd files to UTHSC-package
         run: |
-          rsync -av --include '*/' --include '*.R' --include '*.Rmd' --exclude '*' ./ RMSTSS-Package/inst/shiny_app/
+          # This command syncs only .R and .Rmd files while preserving directories
+          rsync -av --delete \
+            --exclude '.git*' \
+            --include '*/' \
+            --include '*.R' \
+            --include '*.Rmd' \
+            --exclude '*' \
+            ./ RMSTSS-Package/inst/shiny_app/
+
       - name: Commit and push changes
         working-directory: RMSTSS-Package
         run: |
