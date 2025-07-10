@@ -1,8 +1,8 @@
 
 
-# RMSTSS: Interactive Power and Sample Size Calculator
+# RMSTdesign: Interactive Power and Sample Size Calculator
 
-This repository contains the source code for the `RMSTSS` web application, an interactive tool for designing modern clinical trials.
+This repository contains the source code for the `RMSTdesign` web application, an interactive tool for designing modern clinical trials.
 
 -----
 
@@ -37,11 +37,11 @@ It is designed for biostatisticians, clinical trialists, and researchers who nee
 
 -----
 
-## The `RMSTSS` R Package
+## The `RMSTdesign` R Package
 
-This application is powered by the **`RMSTSS`** R package, which contains all the underlying statistical functions. For users who want to integrate these calculations into their own R scripts, see the full documentation, or contribute to the project, please visit the official package repository.
+This application is powered by the **`RMSTdesign`** R package, which contains all the underlying statistical functions. For users who want to integrate these calculations into their own R scripts, see the full documentation, or contribute to the project, please visit the official package repository.
 
-  * **Package Website & Source Code**: [**Click Here**](https://uthsc-zhang.github.io/RMSTSS-Package/articles/RMSTSS.html)
+  * **Package Website & Source Code**: [**Click Here**](https://uthsc-zhang.github.io/RMSTdesign-Package/articles/RMSTdesign.html)
 
 -----
 
