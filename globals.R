@@ -1,4 +1,4 @@
-# Specify the directory where your R scripts are located
+﻿# Specify the directory where your R scripts are located
 script_directory <- "R/"
 
 # Get a list of all .R files in the directory
