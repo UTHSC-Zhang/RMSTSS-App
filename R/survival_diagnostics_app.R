@@ -2,7 +2,8 @@
 #' @importFrom stats pchisq
 #' @importFrom scales pvalue
 #' @importFrom ggplot2 ggplot aes fortify geom_step geom_ribbon labs coord_cartesian annotate theme_minimal facet_wrap
-
+#' @keywords internal
+#' @export
 .run_survival_diagnostics <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL) {
   
   df <- pilot_data

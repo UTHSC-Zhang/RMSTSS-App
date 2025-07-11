@@ -1,4 +1,5 @@
-
+#' @keywords internal
+#' @export
 .estimate_dependent_censoring_params <- function(pilot_data, time_var, status_var, arm_var, dep_cens_status_var, linear_terms, L) {
   
   # --- 1. Estimate Nuisance Parameters from Pilot Data ---
@@ -89,6 +90,9 @@
 }
 
 # Power Calculation -------------------------------------------------------
+
+#' @keywords internal
+#' @export
 DC.power.analytical.app <- function(pilot_data,
                                 time_var,
                                 status_var,
@@ -134,6 +138,8 @@ DC.power.analytical.app <- function(pilot_data,
 }
 
 # Sample Size Search ------------------------------------------------------
+#' @keywords internal
+#' @export
 DC.ss.analytical.app <- function(pilot_data,
                              time_var,
                              status_var,

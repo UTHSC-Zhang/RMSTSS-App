@@ -1,4 +1,6 @@
 #' @importFrom stats aggregate
+#' @keywords internal
+#' @export
 .estimate_multiplicative_stratified_params <- function(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, L) {
   
   # --- 1. Estimate Parameters from Pilot Data (log-linear approximation) ---
@@ -93,7 +95,8 @@
 
 
 # Power Calculation -------------------------------------------------------
-
+#' @keywords internal
+#' @export
 MS.power.analytical.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                                 sample_sizes, linear_terms = NULL, L, alpha = 0.05) {
   
@@ -132,7 +135,8 @@ MS.power.analytical.app <- function(pilot_data, time_var, status_var, arm_var, s
 }
 
 # Sample Size Search ------------------------------------------------------
-
+#' @keywords internal
+#' @export
 MS.ss.analytical.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                              target_power, linear_terms = NULL, L, alpha = 0.05,
                              n_start = 50, n_step = 25, max_n_per_arm = 2000) {

@@ -1,4 +1,5 @@
-
+#' @keywords internal
+#' @export
 .estimate_linear_ipcw_params <- function(pilot_data, time_var, status_var, arm_var, linear_terms, L) {
   
   cat("--- Estimating parameters from pilot data for analytic calculation... ---\n")
@@ -85,7 +86,8 @@
 
 
 # Power Calculation -------------------------------------------------------------------
-
+#' @keywords internal
+#' @export
 linear.power.analytical.app <- function(pilot_data, time_var, status_var, arm_var,
                                     sample_sizes, linear_terms = NULL, L, alpha = 0.05) {
   
@@ -124,7 +126,8 @@ linear.power.analytical.app <- function(pilot_data, time_var, status_var, arm_va
 }
 
 # Sample Size Search ------------------------------------------------------
-
+#' @keywords internal
+#' @export
 linear.ss.analytical.app <- function(pilot_data, time_var, status_var, arm_var,
                                  target_power, linear_terms = NULL, L, alpha = 0.05,
                                  n_start = 50, n_step = 25, max_n_per_arm = 2000) {
