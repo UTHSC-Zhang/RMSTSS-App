@@ -94,7 +94,7 @@
 
 # Power Calculations -------------------------------------------------------
 
-additive.power.boot <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL,
+additive.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL,
                            sample_sizes, linear_terms = NULL, smooth_terms = NULL,
                            tau, n_sim = 1000, alpha = 0.05,
                            parallel.cores = 1) {
@@ -162,7 +162,7 @@ additive.power.boot <- function(pilot_data, time_var, status_var, arm_var, strat
 
 
 # Sample Size Search ------------------------------------------------------
-additive.ss.boot <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL,
+additive.ss.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL,
                         target_power,
                         linear_terms = NULL, smooth_terms = NULL,
                         tau, n_sim = 1000, alpha = 0.05,

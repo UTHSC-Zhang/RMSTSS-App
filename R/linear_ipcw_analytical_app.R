@@ -86,7 +86,7 @@
 
 # Power Calculation -------------------------------------------------------------------
 
-linear.power.analytical <- function(pilot_data, time_var, status_var, arm_var,
+linear.power.analytical.app <- function(pilot_data, time_var, status_var, arm_var,
                                     sample_sizes, linear_terms = NULL, tau, alpha = 0.05) {
   
   # 1. Estimate nuisance parameters from pilot data using the helper function
@@ -125,7 +125,7 @@ linear.power.analytical <- function(pilot_data, time_var, status_var, arm_var,
 
 # Sample Size Search ------------------------------------------------------
 
-linear.ss.analytical <- function(pilot_data, time_var, status_var, arm_var,
+linear.ss.analytical.app <- function(pilot_data, time_var, status_var, arm_var,
                                  target_power, linear_terms = NULL, tau, alpha = 0.05,
                                  n_start = 50, n_step = 25, max_n_per_arm = 2000) {
   

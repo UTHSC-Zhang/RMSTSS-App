@@ -229,7 +229,7 @@ server <- function(input, output, session) {
         method_suffix <- if (!is.null(input$calc_method) && input$calc_method == "Bootstrap") "boot" else if (input$model_selection %in% c("Semiparametric (GAM) Model", "Additive Stratified Model")) "boot" else "analytical"
         model_prefix <- switch(input$model_selection, "Linear IPCW Model"="linear", "Additive Stratified Model"="additive", "Multiplicative Stratified Model"="MS", "Dependent Censoring Model"="DC", "Semiparametric (GAM) Model"="GAM")
         func_type <- if(input$analysis_type == "Power") "power" else "ss"
-        function_to_call_name <- paste(model_prefix, func_type, method_suffix, sep = ".")
+        function_to_call_name <- paste(model_prefix, func_type, method_suffix,"app", sep = ".")
         
         args <- list(pilot_data = pilot_data_reactive(), time_var = input$time_var, status_var = input$status_var, arm_var = input$arm_var, tau = input$tau, alpha = input$alpha)
         if (!is.null(input$linear_terms) && length(input$linear_terms) > 0) args$linear_terms <- input$linear_terms

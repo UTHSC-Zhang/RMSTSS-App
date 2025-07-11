@@ -107,7 +107,7 @@
 
 # Power Calculation -------------------------------------------------------
 
-MS.power.boot <- function(pilot_data, time_var, status_var, arm_var, strata_var,
+MS.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                           sample_sizes, linear_terms = NULL, tau, n_sim = 1000,
                           alpha = 0.05, parallel.cores = 1) {
    # --- Input Validation ---
@@ -179,7 +179,7 @@ MS.power.boot <- function(pilot_data, time_var, status_var, arm_var, strata_var,
 # Sample Size Search ------------------------------------------------------
 
 
-MS.ss.boot <- function(pilot_data, time_var, status_var, arm_var, strata_var,
+MS.ss.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                        target_power, linear_terms = NULL, tau, n_sim = 1000,
                        alpha = 0.05, parallel.cores = 1, patience = 5,
                        n_start = 50, n_step = 25, max_n_per_arm = 2000) {

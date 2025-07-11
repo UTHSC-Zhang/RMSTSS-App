@@ -89,7 +89,7 @@
 }
 
 # Power Calculation -------------------------------------------------------
-DC.power.analytical <- function(pilot_data,
+DC.power.analytical.app <- function(pilot_data,
                                 time_var,
                                 status_var,
                                 arm_var,
@@ -134,7 +134,7 @@ DC.power.analytical <- function(pilot_data,
 }
 
 # Sample Size Search ------------------------------------------------------
-DC.ss.analytical <- function(pilot_data,
+DC.ss.analytical.app <- function(pilot_data,
                              time_var,
                              status_var,
                              arm_var,

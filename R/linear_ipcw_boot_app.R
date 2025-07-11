@@ -70,7 +70,7 @@
 
 # Power Calculation -------------------------------------------------------
 
-linear.power.boot <- function(pilot_data, time_var, status_var, arm_var,
+linear.power.boot.app <- function(pilot_data, time_var, status_var, arm_var,
                               sample_sizes, linear_terms = NULL, tau, n_sim = 1000, alpha = 0.05, parallel.cores) {
   
   start_time <- proc.time()
@@ -125,7 +125,7 @@ linear.power.boot <- function(pilot_data, time_var, status_var, arm_var,
 }
 
 # Sample_Size_Search ------------------------------------------------------
-linear.ss.boot <- function(pilot_data, time_var, status_var, arm_var,
+linear.ss.boot.app <- function(pilot_data, time_var, status_var, arm_var,
                            target_power,
                            linear_terms = NULL, tau, n_sim = 1000, alpha = 0.05,
                            patience = 5,

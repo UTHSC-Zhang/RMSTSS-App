@@ -94,7 +94,7 @@
 
 # Power Calculation -------------------------------------------------------
 
-MS.power.analytical <- function(pilot_data, time_var, status_var, arm_var, strata_var,
+MS.power.analytical.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                                 sample_sizes, linear_terms = NULL, tau, alpha = 0.05) {
   
   # 1. Estimate parameters from pilot data
@@ -133,7 +133,7 @@ MS.power.analytical <- function(pilot_data, time_var, status_var, arm_var, strat
 
 # Sample Size Search ------------------------------------------------------
 
-MS.ss.analytical <- function(pilot_data, time_var, status_var, arm_var, strata_var,
+MS.ss.analytical.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                              target_power, linear_terms = NULL, tau, alpha = 0.05,
                              n_start = 50, n_step = 25, max_n_per_arm = 2000) {
   
