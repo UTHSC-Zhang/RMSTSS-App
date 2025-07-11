@@ -1,4 +1,7 @@
 
+#' @description An internal function for the Shiny app.
+#' @keywords internal
+#' @export
 .get_gam_simulation_runner <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                                        linear_terms, smooth_terms, L, alpha, n_sim, parallel.cores) {
   
@@ -93,7 +96,9 @@
 
 
 # Power Calculations -------------------------------------------------------
-
+#' @description An internal function for the Shiny app.
+#' @keywords internal
+#' @export
 additive.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL,
                            sample_sizes, linear_terms = NULL, smooth_terms = NULL,
                            L, n_sim = 1000, alpha = 0.05,
@@ -162,6 +167,11 @@ additive.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, s
 
 
 # Sample Size Search ------------------------------------------------------
+
+
+#' @description An internal function for the Shiny app.
+#' @keywords internal
+#' @export
 additive.ss.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL,
                         target_power,
                         linear_terms = NULL, smooth_terms = NULL,

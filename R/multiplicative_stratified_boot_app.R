@@ -106,7 +106,8 @@
 
 
 # Power Calculation -------------------------------------------------------
-
+#' @keywords internal
+#' @export
 MS.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                           sample_sizes, linear_terms = NULL, L, n_sim = 1000,
                           alpha = 0.05, parallel.cores = 1) {
@@ -178,7 +179,8 @@ MS.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_
 
 # Sample Size Search ------------------------------------------------------
 
-
+#' @keywords internal
+#' @export
 MS.ss.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                        target_power, linear_terms = NULL, L, n_sim = 1000,
                        alpha = 0.05, parallel.cores = 1, patience = 5,

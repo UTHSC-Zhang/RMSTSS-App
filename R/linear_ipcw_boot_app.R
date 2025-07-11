@@ -1,4 +1,5 @@
-
+#' @keywords internal
+#' @export
 .get_linear_ipcw_simulation_runner <- function(pilot_data, time_var, status_var, arm_var,
                                                linear_terms, L, alpha, n_sim, parallel.cores) {
   
@@ -69,7 +70,8 @@
 
 
 # Power Calculation -------------------------------------------------------
-
+#' @keywords internal
+#' @export
 linear.power.boot.app <- function(pilot_data, time_var, status_var, arm_var,
                               sample_sizes, linear_terms = NULL, L, n_sim = 1000, alpha = 0.05, parallel.cores) {
   
@@ -125,6 +127,8 @@ linear.power.boot.app <- function(pilot_data, time_var, status_var, arm_var,
 }
 
 # Sample_Size_Search ------------------------------------------------------
+#' @keywords internal
+#' @export
 linear.ss.boot.app <- function(pilot_data, time_var, status_var, arm_var,
                            target_power,
                            linear_terms = NULL, L, n_sim = 1000, alpha = 0.05,

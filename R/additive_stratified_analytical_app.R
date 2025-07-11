@@ -1,4 +1,6 @@
 #' @importFrom stats aggregate
+#' @keywords internal
+#' @export
 .estimate_additive_stratified_params <- function(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, L) {
   
   # --- 1. Prepare Data and Calculate IPCW Weights ---
@@ -135,7 +137,8 @@
   ))
 }
 
-
+#' @keywords internal
+#' @export
 additive.power.analytical.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                                       sample_sizes, linear_terms = NULL, L, alpha = 0.05) {
   
@@ -173,6 +176,8 @@ additive.power.analytical.app <- function(pilot_data, time_var, status_var, arm_
   return(list(results_data = results_df, results_plot = p, results_summary = results_summary))
 }
 
+#' @keywords internal
+#' @export
 additive.ss.analytical.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                                    target_power, linear_terms = NULL, L, alpha = 0.05,
                                    n_start = 50, n_step = 25, max_n_per_arm = 2000) {
