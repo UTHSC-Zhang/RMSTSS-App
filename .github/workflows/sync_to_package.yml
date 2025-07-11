@@ -1,20 +1,21 @@
-name: Sync .R files to RMSTSS-Package R directory
+name: Sync R files to RMSTSS-Package
 
 on:
   push:
     paths:
-      - 'R/**/*.R'     # Trigger only when .R files change in app/
+      - 'R/**'  # Trigger only when any file in R/ changes
 
 jobs:
-  sync-package:
+  sync-r-folder:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout UTHSC-App repo
+      - name: Checkout RMSTSS-App repo
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Set up Git
+      - name: Set up Git user
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -25,21 +26,16 @@ jobs:
         run: |
           git clone https://x-access-token:${TOKEN}@github.com/UTHSC-Zhang/RMSTSS-Package.git
 
-      - name: Sync .R files from app/ to R/ in RMSTSS-Package
+      - name: Sync R/ folder from App to Package
         run: |
-          mkdir -p RMSTSS-Package/R
-          rsync -av --delete \
-            --include '*/' \
-            --include '*.R' \
-            --exclude '*' \
-            app/ RMSTSS-Package/R/
+          rsync -av --delete R/ RMSTSS-Package/R/
 
-      - name: Commit and push changes
+      - name: Commit and push if changes
         working-directory: RMSTSS-Package
         run: |
-          git add .
+          git add R/
           if ! git diff --cached --quiet; then
-            git commit -m "Sync .R files from app/ to R/ on $(date +'%Y-%m-%d %H:%M:%S')"
+            git commit -m "Auto-sync: Updated R/ folder from RMSTSS-App on $(date +'%Y-%m-%d %H:%M:%S')"
             git push origin main
           else
             echo "No changes to commit"
