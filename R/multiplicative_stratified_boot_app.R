@@ -14,7 +14,6 @@
    model_rhs <- paste(all_terms[!sapply(all_terms, is.null)], collapse = " + ")
    model_formula <- as.formula(paste("log_pseudo_obs ~", model_rhs))
    message("Model: log(pseudo_obs) ~ ", model_rhs)
-   # Robust pattern to find interaction terms like 'stratumA:arm1', 'stratumB:arm1'
    test_term_pattern <- paste0(":", arm_var, "1$")
 
    # --- Helper to calculate jackknife pseudo-observations ---
