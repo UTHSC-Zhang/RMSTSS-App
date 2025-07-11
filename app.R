@@ -1,17 +1,11 @@
 # Load necessary libraries
-library(shiny)
-library(shinythemes)
-library(shinyjs)
-library(ggplot2)
-library(plotly)
-library(kableExtra)
-library(DT)
-library(bslib)
-library(survival)
-library(survminer) 
-library(rmarkdown) 
-library(knitr)
-library(tinytex)
+packages <- c("shiny", "shinyjs", "bslib", "DT", "ggplot2", "plotly", "survival", "survminer", "kableExtra", "magrittr", "rmarkdown")
+lapply(packages, function(pkg) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    install.packages(pkg)
+  }
+  library(pkg, character.only = TRUE)
+})
 
 # Source all R files in the R/ directory
 r_files <- list.files(path = "R/", pattern = "\\.R$", full.names = TRUE)
@@ -119,6 +113,23 @@ ui <- fluidPage(
 )
 
 # --- Server Definition ---
+#' @importFrom bslib bs_themer
+#' @importFrom DT datatable renderDataTable
+#' @importFrom ggplot2 ggplot aes geom_line geom_point labs theme_light ylim
+#' @importFrom kableExtra kbl kable_styling
+#' @importFrom magrittr %>%
+#' @importFrom plotly ggplotly renderPlotly
+#' @importFrom rmarkdown render
+#' @importFrom shiny reactive req showNotification renderUI tagList fluidRow
+#' @importFrom shiny column selectInput selectizeInput radioButtons textInput
+#' @importFrom shiny sliderInput wellPanel h4 numericInput observe observeEvent
+#' @importFrom shiny updateSelectInput reactiveVal validate need withProgress
+#' @importFrom shiny setProgress renderText downloadButton downloadHandler
+#' @importFrom shiny removeNotification hr p bindCache bindEvent
+#' @importFrom shinyjs toggle toggleState reset
+#' @importFrom stats as.formula complete.cases pchisq sd na.omit
+#' @importFrom survival survfit Surv survdiff
+#' @importFrom survminer ggsurvplot
 server <- function(input, output, session) {
   bslib::bs_themer()
   
@@ -390,7 +401,6 @@ server <- function(input, output, session) {
     )
   })
   
-  # --- MODIFIED: Report Generation Logic for PDF ---
   output$download_report <- downloadHandler(
     filename = function() {
       paste0("RMSTdesign_report_", Sys.Date(), ".pdf")
