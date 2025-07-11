@@ -9,7 +9,7 @@ jobs:
   sync-package:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout UTHSC-App repo
+      - name: Checkout RMSTSS-App repo
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
@@ -23,7 +23,7 @@ jobs:
         env:
           TOKEN: ${{ secrets.PACKAGE_REPO_TOKEN }}
         run: |
-          git clone https://x-access-token:${TOKEN}@github.com/UTHSC-Zhang/RMSTSS-Package.git
+          git clone https://x-access-token:${TOKEN}@github.com/RMSTSS-Zhang/RMSTSS-Package.git
 
       - name: Sync .R files from R/ to R/ in RMSTSS-Package
         run: |
