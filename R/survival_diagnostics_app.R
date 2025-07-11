@@ -2,6 +2,7 @@
 #' @importFrom stats pchisq
 #' @importFrom scales pvalue
 #' @importFrom ggplot2 ggplot aes fortify geom_step geom_ribbon labs coord_cartesian annotate theme_minimal facet_wrap
+
 .run_survival_diagnostics <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL) {
   
   df <- pilot_data
@@ -20,8 +21,8 @@
     } else {
       as.formula(paste("Surv(", time_var, ",", status_var, ") ~", arm_var, "+ strata(", strata_var, ")"))
     }
-    logrank_test <- survdiff(surv_formula_logrank, data = df)
-    p_value <- pchisq(logrank_test$chisq, length(logrank_test$n) - 1, lower.tail = FALSE)
+    logrank_test <- survival::survdiff(surv_formula_logrank, data = df)
+    p_value <- stats::pchisq(logrank_test$chisq, length(logrank_test$n) - 1, lower.tail = FALSE)
     
     logrank_summary <- data.frame(
       Statistic = "Log-Rank Test Chi-Square", Value = round(logrank_test$chisq, 3)
@@ -36,27 +37,27 @@
   
   # --- 2. Generate Kaplan-Meier Plot ---
   surv_formula <- as.formula(paste("Surv(", time_var, ",", status_var, ") ~", arm_var))
-  fit <- survfit(surv_formula, data = df)
+  fit <- survival::survfit(surv_formula, data = df)
   fit_fortified <- ggplot2::fortify(fit)
   
-  km_plot <- ggplot(fit_fortified, aes(x = time, y = surv, color = strata, fill = strata)) +
-    geom_step(linewidth = 1) +
-    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2, linetype = 0) +
-    labs(
+  km_plot <- ggplot2::ggplot(fit_fortified, ggplot2::aes(x = .data$time, y = .data$surv, color = .data$strata, fill = .data$strata)) +
+    ggplot2::geom_step(linewidth = 1) +
+    ggplot2::geom_ribbon(aes(ymin = .data$lower, ymax = .data$upper), alpha = 0.2, linetype = 0) +
+    ggplot2::labs(
       title = "Kaplan-Meier Curve by Treatment Arm",
       x = "Time", y = "Survival Probability", color = "Arm", fill = "Arm"
     ) +
-    coord_cartesian(ylim = c(0, 1)) +
-    theme_minimal()
+    ggplot2::coord_cartesian(ylim = c(0, 1)) +
+    ggplot2::theme_minimal()
   
   if (!is.null(p_value) && is.null(strata_var)) {
-    km_plot <- km_plot + annotate("text", x = 0, y = 0, hjust = -0.1, vjust = -0.5, label = paste("Log-Rank p =", scales::pvalue(p_value)))
+    km_plot <- km_plot + ggplot2::annotate("text", x = 0, y = 0, hjust = -0.1, vjust = -0.5, label = paste("Log-Rank p =", scales::pvalue(p_value)))
   }
   
   # If a strata variable is present, create a faceted plot
   if (!is.null(strata_var)) {
-    km_plot <- km_plot + facet_wrap(as.formula(paste("~", strata_var))) +
-      labs(title = "Kaplan-Meier Curves by Stratum and Treatment Arm")
+    km_plot <- km_plot + ggplot2::facet_wrap(as.formula(paste("~", strata_var))) +
+      ggplot2::labs(title = "Kaplan-Meier Curves by Stratum and Treatment Arm")
   }
   
   return(list(
