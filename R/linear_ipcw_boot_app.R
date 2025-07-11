@@ -1,7 +1,4 @@
-#' @title Internal Factory for Linear IPCW RMST Simulation
-#' @description This internal function prepares and returns a configured simulation function.
-#' @return A function that takes `n_per_arm` and runs the simulation.
-#' @keywords internal
+
 .get_linear_ipcw_simulation_runner <- function(pilot_data, time_var, status_var, arm_var,
                                                linear_terms, tau, alpha, n_sim, parallel.cores) {
   
@@ -73,13 +70,6 @@
 
 # Power Calculation -------------------------------------------------------
 
-#' @title Analyze Power for a Linear RMST Model via Simulation
-#' @description Performs a power analysis for given sample sizes based on the direct
-#'   linear regression model for RMST, using a bootstrap simulation approach.
-#' @inheritParams .get_linear_ipcw_simulation_runner
-#' @param sample_sizes A numeric vector of sample sizes *per arm* to calculate power for.
-#' @return A `list` containing results.
-#' @export
 linear.power.boot <- function(pilot_data, time_var, status_var, arm_var,
                               sample_sizes, linear_terms = NULL, tau, n_sim = 1000, alpha = 0.05, parallel.cores) {
   
@@ -135,17 +125,6 @@ linear.power.boot <- function(pilot_data, time_var, status_var, arm_var,
 }
 
 # Sample_Size_Search ------------------------------------------------------
-
-#' @title Find Sample Size for a Linear RMST Model via Simulation
-#' @description Performs an iterative sample size search to achieve a target power.
-#' @inheritParams .get_linear_ipcw_simulation_runner
-#' @param target_power A single numeric value for the target power (e.g., 0.80).
-#' @param patience The number of consecutive non-improving steps before terminating.
-#' @param n_start The starting sample size *per arm* for the search.
-#' @param n_step The increment in sample size at each step of the search.
-#' @param max_n_per_arm The maximum sample size *per arm* to search up to.
-#' @return A `list` containing results.
-#' @export
 linear.ss.boot <- function(pilot_data, time_var, status_var, arm_var,
                            target_power,
                            linear_terms = NULL, tau, n_sim = 1000, alpha = 0.05,

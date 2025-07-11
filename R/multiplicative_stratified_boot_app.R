@@ -1,11 +1,4 @@
-#' @title Internal Factory for RMST Simulation Functions (Bootstrap)
-#' @description This is a non-exported helper function that sets up and returns
-#'   another function responsible for running the core bootstrap simulation logic. This
-#'   factory pattern helps reduce code duplication between the public-facing
-#'   power and sample size functions. It prepares the model formula and pilot data
-#'   and returns the `run_power_sim` function which is then called repeatedly.
-#' @return A function that takes `n_per_stratum` and runs the simulation.
-#' @keywords internal
+
 .get_internal_simulation_runner <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                                             linear_terms, tau, alpha, n_sim, parallel.cores) {
 
@@ -115,68 +108,6 @@
 
 # Power Calculation -------------------------------------------------------
 
-#' @title Analyze Power for a Multiplicative Stratified RMST Model via Simulation
-#' @description Performs power analysis based on a multiplicative model for RMST
-#'   for stratified trials, using a bootstrap simulation approach.
-#'
-#' @details This function estimates power through bootstrap simulation, resampling
-#'   within each stratum defined by `strata_var`. In each of the `n_sim` iterations:
-#'   1. Jackknife pseudo-observations for the RMST are calculated.
-#'   2. A log-linear model (`stats::lm`) is fitted to the `log(pseudo_obs)`.
-#'      This models the multiplicative relationship on the original RMST scale,
-#'      i.e., \eqn{\mu_{ij} = \mu_{0j} \exp\{\beta'Z_i\}}. The model formula
-#'      includes stratum-specific intercepts and interactions with the treatment arm.
-#'   3. The p-value for the treatment effect is extracted from the model summary.
-#'
-#'   Power is determined as the proportion of simulations where the p-value is
-#'   less than `alpha`.
-#'
-#' @note `status_var` should be `1`/`0`. `arm_var` should be `1`/`0`. `strata_var`
-#'   is a mandatory argument.
-#'
-#' @param pilot_data A `data.frame` with pilot study data.
-#' @param time_var A character string for the time-to-event variable.
-#' @param status_var A character string for the event status variable.
-#' @param arm_var A character string for the treatment arm variable.
-#' @param strata_var A character string for the stratification variable.
-#' @param sample_sizes A numeric vector of sample sizes *per stratum* to calculate power for.
-#' @param linear_terms Optional character vector of covariates for the model.
-#' @param tau The numeric truncation time for RMST.
-#' @param n_sim Number of bootstrap simulations.
-#' @param alpha The significance level.
-#' @param parallel.cores Number of cores for parallel processing.
-#'
-#' @return A `list` containing:
-#' \item{results_data}{A `data.frame` of sample sizes and corresponding powers.}
-#' \item{results_plot}{A `ggplot` object visualizing the power curve.}
-#' \item{results_summary}{A `data.frame` with the estimated treatment effect (RMST Ratio).}
-#'
-#' @importFrom survival survfit Surv
-#' @importFrom stats lm as.formula complete.cases integrate na.omit quantile stepfun sd
-#' @importFrom ggplot2 ggplot aes geom_line geom_point geom_hline labs theme_minimal ylim
-#' @importFrom future plan multisession sequential
-#' @importFrom future.apply future_lapply
-#' @importFrom knitr kable
-#' @export
-#' @examples
-#' \dontrun{
-#' pilot_df_strat <- data.frame(
-#'  time = rexp(120, 0.15),
-#'  status = rbinom(120, 1, 0.6),
-#'  arm = rep(0:1, each = 60),
-#'  region = factor(rep(c("A", "B", "C"), each = 40))
-#' )
-#' pilot_df_strat$time[pilot_df_strat$arm == 1] <- pilot_df_strat$time[pilot_df_strat$arm == 1] * 1.4
-#'
-#' power_results <- MS.power.boot(
-#'  pilot_data = pilot_df_strat,
-#'  time_var = "time", status_var = "status", arm_var = "arm", strata_var = "region",
-#'  sample_sizes = c(50, 75),
-#'  tau = 10,
-#'  n_sim = 100 # Low n_sim for example
-#' )
-#' print(power_results$results_data)
-#' }
 MS.power.boot <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                           sample_sizes, linear_terms = NULL, tau, n_sim = 1000,
                           alpha = 0.05, parallel.cores = 1) {
@@ -248,67 +179,7 @@ MS.power.boot <- function(pilot_data, time_var, status_var, arm_var, strata_var,
 
 # Sample Size Search ------------------------------------------------------
 
-#' @title Estimate Sample Size for a Multiplicative Stratified RMST Model via Simulation
-#' @description Performs sample size estimation based on a multiplicative model for RMST
-#'   for stratified trials, using iterative bootstrap simulations.
-#'
-#' @details
-#' This function iteratively searches for the sample size required to
-#' achieve a `target_power`. At each step of the search, it runs a full bootstrap simulation
-#' (as described in `MS.power.boot`) to estimate the power for the
-#' current sample size. The search proceeds until the target power is met or
-#' other stopping criteria are satisfied. This process can be very computationally
-#' intensive.
-#'
-#' @note `status_var` should be `1`/`0`. `arm_var` should be `1`/`0`. `strata_var`
-#'   is a mandatory argument.
-#'
-#' @param pilot_data A `data.frame` with pilot study data.
-#' @param time_var A character string for the time-to-event variable.
-#' @param status_var A character string for the event status variable.
-#' @param arm_var A character string for the treatment arm variable.
-#' @param strata_var A character string for the stratification variable.
-#' @param target_power A single numeric value for the target power (e.g., 0.80).
-#' @param linear_terms Optional vector of covariates for the model.
-#' @param tau The numeric truncation time for RMST.
-#' @param n_sim Number of bootstrap simulations per search step.
-#' @param alpha The significance level.
-#' @param parallel.cores Number of cores for parallel processing.
-#' @param patience Number of consecutive non-improving steps in the search before terminating.
-#' @param n_start Starting sample size per stratum for the search.
-#' @param n_step Increment for the sample size search.
-#' @param max_n_per_arm Maximum sample size per stratum to try.
-#'
-#' @return A `list` containing:
-#' \item{results_data}{A `data.frame` with the target power and required N.}
-#' \item{results_plot}{A `ggplot` object showing the search path.}
-#' \item{results_summary}{A `data.frame` with the estimated treatment effect.}
-#'
-#' @importFrom survival survfit Surv
-#' @importFrom stats lm as.formula complete.cases integrate na.omit quantile stepfun sd
-#' @importFrom ggplot2 ggplot aes geom_line geom_point geom_vline geom_hline labs theme_minimal
-#' @importFrom future plan multisession sequential
-#' @importFrom future.apply future_lapply
-#' @importFrom knitr kable
-#' @export
-#' @examples
-#' \dontrun{
-#' pilot_df_strat_effect <- data.frame(
-#'  time = c(rexp(60, 0.15), rexp(60, 0.08)), # Effect
-#'  status = rbinom(120, 1, 0.7),
-#'  arm = rep(0:1, each = 60),
-#'  region = factor(rep(c("A", "B", "C"), each = 40))
-#' )
-#' ss_results <- MS.ss.boot(
-#'  pilot_data = pilot_df_strat_effect,
-#'  time_var = "time", status_var = "status", arm_var = "arm", strata_var = "region",
-#'  target_power = 0.80, tau = 10,
-#'  n_sim = 100, # Low n_sim for example
-#'  n_start = 100,
-#'  n_step = 50, patience = 2
-#' )
-#' print(ss_results$results_data)
-#' }
+
 MS.ss.boot <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                        target_power, linear_terms = NULL, tau, n_sim = 1000,
                        alpha = 0.05, parallel.cores = 1, patience = 5,

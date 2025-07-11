@@ -85,14 +85,6 @@
 
 # Power Calculation -------------------------------------------------------------------
 
-#' @title Analyze Power for a Linear RMST Model (Analytic)
-#' @description Performs power analysis using a direct formula based on the
-#'   asymptotic variance estimator for the linear RMST model.
-#' @inheritParams .estimate_linear_ipcw_params
-#' @param sample_sizes A numeric vector of sample sizes *per arm* to calculate power for.
-#' @param alpha The significance level for the power calculation (Type I error rate).
-#' @return A `list` containing results.
-#' @export
 linear.power.analytical <- function(pilot_data, time_var, status_var, arm_var,
                                     sample_sizes, linear_terms = NULL, tau, alpha = 0.05) {
   
@@ -132,17 +124,6 @@ linear.power.analytical <- function(pilot_data, time_var, status_var, arm_var,
 
 # Sample Size Search ------------------------------------------------------
 
-#' @title Find Sample Size for a Linear RMST Model (Analytic)
-#' @description Calculates the required sample size for a target power using an
-#'   analytic formula based on the methods of Tian et al. (2014).
-#' @inheritParams .estimate_linear_ipcw_params
-#' @param target_power A single numeric value for the desired power (e.g., 0.80 or 0.90).
-#' @param alpha The significance level (Type I error rate).
-#' @param n_start The starting sample size *per arm* for the search.
-#' @param n_step The increment in sample size at each step of the search.
-#' @param max_n_per_arm The maximum sample size *per arm* to search up to.
-#' @return A `list` containing results.
-#' @export
 linear.ss.analytical <- function(pilot_data, time_var, status_var, arm_var,
                                  target_power, linear_terms = NULL, tau, alpha = 0.05,
                                  n_start = 50, n_step = 25, max_n_per_arm = 2000) {

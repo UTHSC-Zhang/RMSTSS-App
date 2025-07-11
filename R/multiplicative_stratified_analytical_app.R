@@ -1,8 +1,4 @@
-#' @title Internal Helper to Estimate Multiplicative Stratified Model Parameters
-#' @description This internal function contains the common logic for estimating the
-#'   log-RMST ratio and its variance from pilot data using a log-linear approximation.
-#' @return A list containing `beta_effect`, `se_beta_n1`, and `n_strata`.
-#' @keywords internal
+
 .estimate_multiplicative_stratified_params <- function(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, tau) {
   
   # --- 1. Estimate Parameters from Pilot Data (log-linear approximation) ---
@@ -98,14 +94,6 @@
 
 # Power Calculation -------------------------------------------------------
 
-#' @title Analyze Power for a Multiplicative Stratified RMST Model (Analytic)
-#' @description Performs power analysis for a multiplicative, stratified RMST model using an
-#'   analytic method based on the work of Wang et al. (2019).
-#' @inheritParams .estimate_multiplicative_stratified_params
-#' @param sample_sizes A numeric vector of sample sizes *per stratum* to calculate power for.
-#' @param alpha The significance level (Type I error rate).
-#' @return A list containing results.
-#' @export
 MS.power.analytical <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                                 sample_sizes, linear_terms = NULL, tau, alpha = 0.05) {
   
@@ -145,17 +133,6 @@ MS.power.analytical <- function(pilot_data, time_var, status_var, arm_var, strat
 
 # Sample Size Search ------------------------------------------------------
 
-#' @title Find Sample Size for a Multiplicative Stratified RMST Model (Analytic)
-#' @description Calculates the required sample size for a target power using the analytic
-#'   (approximate) method from Wang et al. (2019).
-#' @inheritParams .estimate_multiplicative_stratified_params
-#' @param target_power A single numeric value for the desired power.
-#' @param alpha The significance level (Type I error rate).
-#' @param n_start The starting sample size *per stratum* for the search.
-#' @param n_step The increment in sample size at each step of the search.
-#' @param max_n_per_arm The maximum sample size *per stratum* to search up to.
-#' @return A list containing results.
-#' @export
 MS.ss.analytical <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                              target_power, linear_terms = NULL, tau, alpha = 0.05,
                              n_start = 50, n_step = 25, max_n_per_arm = 2000) {

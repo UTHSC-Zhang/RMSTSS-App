@@ -1,9 +1,4 @@
-#' @title Internal Helper to Estimate Dependent Censoring Model Parameters
-#' @description This internal function contains the common logic for estimating the
-#'   treatment effect and its variance from pilot data for the dependent censoring model.
-#' @return A list containing `beta_effect` (the estimated treatment effect) and
-#'   `se_beta_n1` (the standard error for a sample size of 1).
-#' @keywords internal
+
 .estimate_dependent_censoring_params <- function(pilot_data, time_var, status_var, arm_var, dep_cens_status_var, linear_terms, tau) {
   
   # --- 1. Estimate Nuisance Parameters from Pilot Data ---
@@ -94,14 +89,6 @@
 }
 
 # Power Calculation -------------------------------------------------------
-
-#' @title Analyze Power for RMST Model with Dependent Censoring (Analytic)
-#' @description Performs power analysis for an RMST model with multiple censoring causes.
-#' @inheritParams .estimate_dependent_censoring_params
-#' @param sample_sizes A numeric vector of sample sizes *per arm* to calculate power for.
-#' @param alpha The significance level (Type I error rate).
-#' @return A list containing results.
-#' @export
 DC.power.analytical <- function(pilot_data,
                                 time_var,
                                 status_var,
@@ -147,17 +134,6 @@ DC.power.analytical <- function(pilot_data,
 }
 
 # Sample Size Search ------------------------------------------------------
-
-#' @title Find Sample Size for RMST Model with Dependent Censoring (Analytic)
-#' @description Calculates the required sample size for a target power.
-#' @inheritParams .estimate_dependent_censoring_params
-#' @param target_power A single numeric value for the desired power.
-#' @param alpha The significance level (Type I error rate).
-#' @param n_start The starting sample size *per arm* for the search.
-#' @param n_step The increment in sample size at each step of the search.
-#' @param max_n_per_arm The maximum sample size *per arm* to search up to.
-#' @return A list containing results.
-#' @export
 DC.ss.analytical <- function(pilot_data,
                              time_var,
                              status_var,
