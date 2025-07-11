@@ -3,7 +3,7 @@ name: Sync .R files to RMSTSS-Package R directory
 on:
   push:
     paths:
-      - 'R/**/*.R'     # Trigger only when .R files change in app/
+      - 'R/**/*.R'     # Trigger only when .R files change in R/
 
 jobs:
   sync-package:
@@ -25,21 +25,21 @@ jobs:
         run: |
           git clone https://x-access-token:${TOKEN}@github.com/UTHSC-Zhang/RMSTSS-Package.git
 
-      - name: Sync .R files from app/ to R/ in RMSTSS-Package
+      - name: Sync .R files from R/ to R/ in RMSTSS-Package
         run: |
           mkdir -p RMSTSS-Package/R
           rsync -av --delete \
             --include '*/' \
             --include '*.R' \
             --exclude '*' \
-            app/ RMSTSS-Package/R/
+            R/ RMSTSS-Package/R/
 
       - name: Commit and push changes
         working-directory: RMSTSS-Package
         run: |
           git add .
           if ! git diff --cached --quiet; then
-            git commit -m "Sync .R files from app/ to R/ on $(date +'%Y-%m-%d %H:%M:%S')"
+            git commit -m "Sync .R files from R/ to R/ on $(date +'%Y-%m-%d %H:%M:%S')"
             git push origin main
           else
             echo "No changes to commit"
