@@ -265,7 +265,7 @@ additive.ss.boot <- function(pilot_data, time_var, status_var, arm_var, strata_v
   elapsed_time <- round((end_time - start_time)["elapsed"], 2)
   message(paste("Total simulation time:", elapsed_time, "seconds"))
   
-  cat("\n--- Simulation Summary ---\n")
+  cat("\n--- Simulation Summary ----\n")
   if (!is.null(results_summary)) {
     print(knitr::kable(results_summary, caption = "Estimated Treatment Effect (RMST Difference)"))
   } else {
