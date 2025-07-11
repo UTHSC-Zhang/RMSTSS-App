@@ -41,7 +41,7 @@ It is designed for biostatisticians, clinical trialists, and researchers who nee
 
 This application is powered by the **`RMSTdesign`** R package, which contains all the underlying statistical functions. For users who want to integrate these calculations into their own R scripts, see the full documentation, or contribute to the project, please visit the official package repository.
 
-  * **Package Website & Source Code**: [**Click Here**](https://uthsc-zhang.github.io/RMSTdesign-Package/articles/RMSTdesign.html)
+  * **Package Website & Source Code**: [**Click Here**](https://uthsc-zhang.github.io/RMSTSS-Package/articles/RMSTSS.html)
 
 -----
 
