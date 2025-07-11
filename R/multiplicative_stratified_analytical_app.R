@@ -1,5 +1,5 @@
-
-.estimate_multiplicative_stratified_params <- function(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, tau) {
+#' @importFrom stats aggregate
+.estimate_multiplicative_stratified_params <- function(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, L) {
   
   # --- 1. Estimate Parameters from Pilot Data (log-linear approximation) ---
   cat("--- Estimating parameters from pilot data (log-linear approximation)... ---\n")
@@ -26,7 +26,7 @@
     stop(error_msg, call. = FALSE)
   }
   # Prepare data for IPCW
-  df$Y_rmst <- pmin(df[[time_var]], tau)
+  df$Y_rmst <- pmin(df[[time_var]], L)
   df$is_event <- df[[status_var]] == 1
   
   # Model for censoring (stratified by strata_var)
@@ -95,10 +95,10 @@
 # Power Calculation -------------------------------------------------------
 
 MS.power.analytical.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
-                                sample_sizes, linear_terms = NULL, tau, alpha = 0.05) {
+                                sample_sizes, linear_terms = NULL, L, alpha = 0.05) {
   
   # 1. Estimate parameters from pilot data
-  params <- .estimate_multiplicative_stratified_params(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, tau)
+  params <- .estimate_multiplicative_stratified_params(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, L)
   
   # 2. Calculate Power
   cat("--- Calculating power for specified sample sizes... ---\n")
@@ -134,11 +134,11 @@ MS.power.analytical.app <- function(pilot_data, time_var, status_var, arm_var, s
 # Sample Size Search ------------------------------------------------------
 
 MS.ss.analytical.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
-                             target_power, linear_terms = NULL, tau, alpha = 0.05,
+                             target_power, linear_terms = NULL, L, alpha = 0.05,
                              n_start = 50, n_step = 25, max_n_per_arm = 2000) {
   
   # 1. Estimate parameters from pilot data
-  params <- .estimate_multiplicative_stratified_params(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, tau)
+  params <- .estimate_multiplicative_stratified_params(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, L)
   
   # 2. Iterative Search for Sample Size
   cat("--- Searching for Sample Size (Method: Analytic/Approximation) ---\n")

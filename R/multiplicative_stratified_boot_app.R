@@ -1,6 +1,6 @@
 
 .get_internal_simulation_runner <- function(pilot_data, time_var, status_var, arm_var, strata_var,
-                                            linear_terms, tau, alpha, n_sim, parallel.cores) {
+                                            linear_terms, L, alpha, n_sim, parallel.cores) {
 
    # --- Data Preparation & Model Formula ---
    core_vars <- c(time_var, status_var, arm_var, strata_var)
@@ -17,18 +17,18 @@
    test_term_pattern <- paste0(":", arm_var, "1$")
 
    # --- Helper to calculate jackknife pseudo-observations ---
-   get_pseudo_obs <- function(time, status, tau_val) {
+   get_pseudo_obs <- function(time, status, L_val) {
       n <- length(time)
       if (n == 0) return(numeric(0))
       km_fit_full <- survival::survfit(survival::Surv(time, status) ~ 1)
       km_step_full <- stats::stepfun(km_fit_full$time, c(1, km_fit_full$surv))
-      rmst_full <- tryCatch(stats::integrate(km_step_full, 0, tau_val, subdivisions = 2000, stop.on.error = FALSE)$value, error = function(e) 0)
+      rmst_full <- tryCatch(stats::integrate(km_step_full, 0, L_val, subdivisions = 2000, stop.on.error = FALSE)$value, error = function(e) 0)
 
       rmst_loo <- vapply(seq_len(n), function(i) {
          if (n > 1) {
             km_fit_loo <- survival::survfit(survival::Surv(time[-i], status[-i]) ~ 1)
             km_step_loo <- stats::stepfun(km_fit_loo$time, c(1, km_fit_loo$surv))
-            tryCatch(stats::integrate(km_step_loo, 0, tau_val, subdivisions = 2000, stop.on.error = FALSE)$value, error = function(e) 0)
+            tryCatch(stats::integrate(km_step_loo, 0, L_val, subdivisions = 2000, stop.on.error = FALSE)$value, error = function(e) 0)
          } else { 0 }
       }, FUN.VALUE = numeric(1))
 
@@ -54,7 +54,7 @@
          boot_data[[arm_var]] <- factor(boot_data[[arm_var]], levels = c(0, 1))
 
          pseudo_obs_list <- by(boot_data, boot_data[[strata_var]], function(sub_data) {
-            sub_data$pseudo_obs <- get_pseudo_obs(sub_data[[time_var]], sub_data[[status_var]], tau)
+            sub_data$pseudo_obs <- get_pseudo_obs(sub_data[[time_var]], sub_data[[status_var]], L)
             sub_data
          })
          boot_data <- do.call(rbind, pseudo_obs_list)
@@ -108,7 +108,7 @@
 # Power Calculation -------------------------------------------------------
 
 MS.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
-                          sample_sizes, linear_terms = NULL, tau, n_sim = 1000,
+                          sample_sizes, linear_terms = NULL, L, n_sim = 1000,
                           alpha = 0.05, parallel.cores = 1) {
    # --- Input Validation ---
    if (is.null(sample_sizes)) stop("You must provide the 'sample_sizes' argument.")
@@ -122,7 +122,7 @@ MS.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_
    sim_function <- .get_internal_simulation_runner(
       pilot_data = pilot_data,
       time_var = time_var, status_var = status_var, arm_var = arm_var,
-      strata_var = strata_var, linear_terms = linear_terms, tau = tau,
+      strata_var = strata_var, linear_terms = linear_terms, L = L,
       alpha = alpha, n_sim = n_sim, parallel.cores = parallel.cores
    )
 
@@ -180,7 +180,7 @@ MS.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_
 
 
 MS.ss.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
-                       target_power, linear_terms = NULL, tau, n_sim = 1000,
+                       target_power, linear_terms = NULL, L, n_sim = 1000,
                        alpha = 0.05, parallel.cores = 1, patience = 5,
                        n_start = 50, n_step = 25, max_n_per_arm = 2000) {
    # --- Input Validation ---
@@ -197,7 +197,7 @@ MS.ss.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var
    sim_function <- .get_internal_simulation_runner(
       pilot_data = pilot_data,
       time_var = time_var, status_var = status_var, arm_var = arm_var,
-      strata_var = strata_var, linear_terms = linear_terms, tau = tau,
+      strata_var = strata_var, linear_terms = linear_terms, L = L,
       alpha = alpha, n_sim = n_sim, parallel.cores = parallel.cores
    )
 

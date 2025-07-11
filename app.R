@@ -58,7 +58,7 @@ ui <- fluidPage(
                        uiOutput("method_selection_ui")
                 ),
                 column(4,
-                       numericInput("tau", "RMST Tau (τ)", value = 365, min = 1)
+                       numericInput("L", "RMST L (τ)", value = 365, min = 1)
                 )
               ),
               
@@ -231,7 +231,7 @@ server <- function(input, output, session) {
         func_type <- if(input$analysis_type == "Power") "power" else "ss"
         function_to_call_name <- paste(model_prefix, func_type, method_suffix,"app", sep = ".")
         
-        args <- list(pilot_data = pilot_data_reactive(), time_var = input$time_var, status_var = input$status_var, arm_var = input$arm_var, tau = input$tau, alpha = input$alpha)
+        args <- list(pilot_data = pilot_data_reactive(), time_var = input$time_var, status_var = input$status_var, arm_var = input$arm_var, L = input$L, alpha = input$alpha)
         if (!is.null(input$linear_terms) && length(input$linear_terms) > 0) args$linear_terms <- input$linear_terms
         if (input$analysis_type == "Power") {
           args$sample_sizes <- as.numeric(trimws(strsplit(input$sample_sizes, ",")[[1]]))
@@ -308,7 +308,7 @@ server <- function(input, output, session) {
       pilot_data_reactive(), input$model_selection, input$analysis_type,
       input$time_var, input$status_var, input$arm_var,
       input$linear_terms, input$strata_var, input$dep_cens_var, input$smooth_terms,
-      input$tau, input$alpha, input$sample_sizes, input$target_power,
+      input$L, input$alpha, input$sample_sizes, input$target_power,
       input$n_sim, input$n_cores, input$calc_method
     ) %>%
     bindEvent(input$run_analysis)
@@ -410,7 +410,7 @@ server <- function(input, output, session) {
         time_var = input$time_var,
         status_var = input$status_var,
         arm_var = input$arm_var,
-        tau = input$tau,
+        L = input$L,
         alpha = input$alpha,
         sample_sizes = input$sample_sizes,
         target_power = input$target_power

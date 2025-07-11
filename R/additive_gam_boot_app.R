@@ -1,6 +1,6 @@
 
 .get_gam_simulation_runner <- function(pilot_data, time_var, status_var, arm_var, strata_var,
-                                       linear_terms, smooth_terms, tau, alpha, n_sim, parallel.cores) {
+                                       linear_terms, smooth_terms, L, alpha, n_sim, parallel.cores) {
   
   # --- 1. One-Time Setup ---
   is_stratified <- !is.null(strata_var)
@@ -26,17 +26,17 @@
   message("Model: pseudo_obs ~ ", model_rhs)
   
   # Helper to calculate jackknife pseudo-observations
-  get_pseudo_obs <- function(time, status, tau_val) {
+  get_pseudo_obs <- function(time, status, L_val) {
     n <- length(time)
     if (n == 0) return(numeric(0))
     km_fit_full <- survival::survfit(survival::Surv(time, status) ~ 1)
     km_step_full <- stats::stepfun(km_fit_full$time, c(1, km_fit_full$surv))
-    rmst_full <- tryCatch(stats::integrate(km_step_full, 0, tau_val, subdivisions=2000, stop.on.error = FALSE)$value, error = function(e) 0)
+    rmst_full <- tryCatch(stats::integrate(km_step_full, 0, L_val, subdivisions=2000, stop.on.error = FALSE)$value, error = function(e) 0)
     rmst_loo <- vapply(seq_len(n), function(i) {
       if(n > 1) {
         km_fit_loo <- survival::survfit(survival::Surv(time[-i], status[-i]) ~ 1)
         km_step_loo <- stats::stepfun(km_fit_loo$time, c(1, km_fit_loo$surv))
-        tryCatch(stats::integrate(km_step_loo, 0, tau_val, subdivisions=2000, stop.on.error = FALSE)$value, error = function(e) 0)
+        tryCatch(stats::integrate(km_step_loo, 0, L_val, subdivisions=2000, stop.on.error = FALSE)$value, error = function(e) 0)
       } else { 0 }
     }, FUN.VALUE = numeric(1))
     return(n * rmst_full - (n - 1) * rmst_loo)
@@ -57,7 +57,7 @@
       
       grouping_var <- if(is_stratified) strata_var else arm_var
       pseudo_obs_list <- by(boot_data, boot_data[[grouping_var]], function(sub_data) {
-        sub_data$pseudo_obs <- get_pseudo_obs(sub_data[[time_var]], sub_data[[status_var]], tau)
+        sub_data$pseudo_obs <- get_pseudo_obs(sub_data[[time_var]], sub_data[[status_var]], L)
         sub_data
       })
       boot_data <- do.call(rbind, pseudo_obs_list)
@@ -96,7 +96,7 @@
 
 additive.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL,
                            sample_sizes, linear_terms = NULL, smooth_terms = NULL,
-                           tau, n_sim = 1000, alpha = 0.05,
+                           L, n_sim = 1000, alpha = 0.05,
                            parallel.cores = 1) {
   start_time <- proc.time()
   if (is.null(sample_sizes)) stop("You must provide a numeric vector for 'sample_sizes'.")
@@ -112,7 +112,7 @@ additive.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, s
   
   # Get the configured simulation runner
   simulation_runner <- .get_gam_simulation_runner(pilot_data, time_var, status_var, arm_var, strata_var,
-                                                  linear_terms, smooth_terms, tau, alpha, n_sim, parallel.cores)
+                                                  linear_terms, smooth_terms, L, alpha, n_sim, parallel.cores)
   
   all_sim_outputs <- vector("list", length(sample_sizes))
   group_label <- if(!is.null(strata_var)) "/stratum" else "/arm"
@@ -165,7 +165,7 @@ additive.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, s
 additive.ss.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL,
                         target_power,
                         linear_terms = NULL, smooth_terms = NULL,
-                        tau, n_sim = 1000, alpha = 0.05,
+                        L, n_sim = 1000, alpha = 0.05,
                         parallel.cores = 1, patience = 5,
                         n_start = 50, n_step = 25, max_n_per_arm = 2000) {
   
@@ -183,7 +183,7 @@ additive.ss.boot.app <- function(pilot_data, time_var, status_var, arm_var, stra
   
   # Get the configured simulation runner
   simulation_runner <- .get_gam_simulation_runner(pilot_data, time_var, status_var, arm_var, strata_var,
-                                                  linear_terms, smooth_terms, tau, alpha, n_sim, parallel.cores)
+                                                  linear_terms, smooth_terms, L, alpha, n_sim, parallel.cores)
   
   # --- Main Search Loop ---
   group_label <- if(!is.null(strata_var)) "/stratum" else "/arm"

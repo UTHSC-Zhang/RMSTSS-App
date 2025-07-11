@@ -1,5 +1,5 @@
 
-.estimate_linear_ipcw_params <- function(pilot_data, time_var, status_var, arm_var, linear_terms, tau) {
+.estimate_linear_ipcw_params <- function(pilot_data, time_var, status_var, arm_var, linear_terms, L) {
   
   cat("--- Estimating parameters from pilot data for analytic calculation... ---\n")
   
@@ -15,7 +15,7 @@
   message("Model: Y_rmst ~ ", model_rhs)
   
   # Prepare data for IPCW
-  df$Y_rmst <- pmin(df[[time_var]], tau)
+  df$Y_rmst <- pmin(df[[time_var]], L)
   df$is_censored <- df[[status_var]] == 0
   df$is_event <- df[[status_var]] == 1
   
@@ -87,10 +87,10 @@
 # Power Calculation -------------------------------------------------------------------
 
 linear.power.analytical.app <- function(pilot_data, time_var, status_var, arm_var,
-                                    sample_sizes, linear_terms = NULL, tau, alpha = 0.05) {
+                                    sample_sizes, linear_terms = NULL, L, alpha = 0.05) {
   
   # 1. Estimate nuisance parameters from pilot data using the helper function
-  params <- .estimate_linear_ipcw_params(pilot_data, time_var, status_var, arm_var, linear_terms, tau)
+  params <- .estimate_linear_ipcw_params(pilot_data, time_var, status_var, arm_var, linear_terms, L)
   
   # 2. Calculate Power for Each Sample Size
   cat("--- Calculating power for specified sample sizes... ---\n")
@@ -126,11 +126,11 @@ linear.power.analytical.app <- function(pilot_data, time_var, status_var, arm_va
 # Sample Size Search ------------------------------------------------------
 
 linear.ss.analytical.app <- function(pilot_data, time_var, status_var, arm_var,
-                                 target_power, linear_terms = NULL, tau, alpha = 0.05,
+                                 target_power, linear_terms = NULL, L, alpha = 0.05,
                                  n_start = 50, n_step = 25, max_n_per_arm = 2000) {
   
   # 1. Estimate parameters from pilot data using the helper function
-  params <- .estimate_linear_ipcw_params(pilot_data, time_var, status_var, arm_var, linear_terms, tau)
+  params <- .estimate_linear_ipcw_params(pilot_data, time_var, status_var, arm_var, linear_terms, L)
   
   # 2. Iterative Search for Sample Size using Analytic Formula
   cat("--- Searching for Sample Size (Method: Analytic) ---\n")

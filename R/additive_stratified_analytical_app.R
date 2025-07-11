@@ -1,5 +1,5 @@
-
-.estimate_additive_stratified_params <- function(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, tau) {
+#' @importFrom stats aggregate
+.estimate_additive_stratified_params <- function(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, L) {
   
   # --- 1. Prepare Data and Calculate IPCW Weights ---
   cat("--- Estimating parameters from pilot data... ---\n")
@@ -32,7 +32,7 @@
     }
   }
   
-  df$Y_rmst <- pmin(df[[time_var]], tau)
+  df$Y_rmst <- pmin(df[[time_var]], L)
   df$is_event <- df[[status_var]] == 1
   
   cens_formula <- stats::as.formula(paste0("survival::Surv(Y_rmst, is_event == 0) ~ ",
@@ -137,10 +137,10 @@
 
 
 additive.power.analytical.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
-                                      sample_sizes, linear_terms = NULL, tau, alpha = 0.05) {
+                                      sample_sizes, linear_terms = NULL, L, alpha = 0.05) {
   
   # 1. Estimate parameters from pilot data using the helper function
-  params <- .estimate_additive_stratified_params(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, tau)
+  params <- .estimate_additive_stratified_params(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, L)
   
   # 2. Calculate Power
   cat("--- Calculating power for specified sample sizes... ---\n")
@@ -174,11 +174,11 @@ additive.power.analytical.app <- function(pilot_data, time_var, status_var, arm_
 }
 
 additive.ss.analytical.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
-                                   target_power, linear_terms = NULL, tau, alpha = 0.05,
+                                   target_power, linear_terms = NULL, L, alpha = 0.05,
                                    n_start = 50, n_step = 25, max_n_per_arm = 2000) {
   
   # 1. Estimate parameters from pilot data using the helper function
-  params <- .estimate_additive_stratified_params(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, tau)
+  params <- .estimate_additive_stratified_params(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, L)
   
   # 2. Iterative Search for Sample Size
   cat("--- Searching for Sample Size (Method: Additive Analytic) ---\n")

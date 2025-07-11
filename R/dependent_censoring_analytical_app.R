@@ -1,5 +1,5 @@
 
-.estimate_dependent_censoring_params <- function(pilot_data, time_var, status_var, arm_var, dep_cens_status_var, linear_terms, tau) {
+.estimate_dependent_censoring_params <- function(pilot_data, time_var, status_var, arm_var, dep_cens_status_var, linear_terms, L) {
   
   # --- 1. Estimate Nuisance Parameters from Pilot Data ---
   cat("--- Estimating parameters from pilot data... ---\n")
@@ -21,7 +21,7 @@
   # Define censoring indicators and truncated time
   df$cens_ind <- df[[status_var]] == 0 & df[[dep_cens_status_var]] == 0
   df$dep_cens_ind <- df[[dep_cens_status_var]] == 1
-  df$Y_rmst <- pmin(df[[time_var]], tau)
+  df$Y_rmst <- pmin(df[[time_var]], L)
   
   # Fit censoring models
   fit_cens <- tryCatch(survival::coxph(cens_formula, data = df, ties = "breslow"), error = function(e) NULL)
@@ -96,11 +96,11 @@ DC.power.analytical.app <- function(pilot_data,
                                 dep_cens_status_var,
                                 sample_sizes,
                                 linear_terms = NULL,
-                                tau,
+                                L,
                                 alpha = 0.05) {
   
   # 1. Estimate parameters from pilot data
-  params <- .estimate_dependent_censoring_params(pilot_data, time_var, status_var, arm_var, dep_cens_status_var, linear_terms, tau)
+  params <- .estimate_dependent_censoring_params(pilot_data, time_var, status_var, arm_var, dep_cens_status_var, linear_terms, L)
   
   # 2. Calculate Power for Each Sample Size
   cat("--- Calculating power for specified sample sizes... ---\n")
@@ -141,14 +141,14 @@ DC.ss.analytical.app <- function(pilot_data,
                              dep_cens_status_var,
                              target_power,
                              linear_terms = NULL,
-                             tau,
+                             L,
                              alpha = 0.05,
                              n_start = 50,
                              n_step = 25,
                              max_n_per_arm = 2000) {
   
   # 1. Estimate parameters from pilot data
-  params <- .estimate_dependent_censoring_params(pilot_data, time_var, status_var, arm_var, dep_cens_status_var, linear_terms, tau)
+  params <- .estimate_dependent_censoring_params(pilot_data, time_var, status_var, arm_var, dep_cens_status_var, linear_terms, L)
   
   # 2. Iterative Search for Sample Size
   cat("--- Searching for Sample Size (Method: Analytic) ---\n")

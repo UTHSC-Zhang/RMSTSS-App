@@ -1,6 +1,6 @@
 
 .get_linear_ipcw_simulation_runner <- function(pilot_data, time_var, status_var, arm_var,
-                                               linear_terms, tau, alpha, n_sim, parallel.cores) {
+                                               linear_terms, L, alpha, n_sim, parallel.cores) {
   
   # --- 1. One-Time Setup ---
   core_vars <- c(time_var, status_var, arm_var)
@@ -26,7 +26,7 @@
       is_censored <- boot_data[[status_var]] == 0
       cens_fit <- tryCatch(survival::survfit(Surv(boot_data[[time_var]], is_censored) ~ 1), error = function(e) NULL)
       if (is.null(cens_fit)) next
-      surv_summary <- tryCatch(summary(cens_fit, times = pmin(boot_data[[time_var]], tau), extend = TRUE), error = function(e) NULL)
+      surv_summary <- tryCatch(summary(cens_fit, times = pmin(boot_data[[time_var]], L), extend = TRUE), error = function(e) NULL)
       if (is.null(surv_summary)) next
       
       weights <- 1 / surv_summary$surv
@@ -37,7 +37,7 @@
       }
       weights[!is.finite(weights)] <- NA
       
-      boot_data$Y_rmst <- pmin(boot_data[[time_var]], tau)
+      boot_data$Y_rmst <- pmin(boot_data[[time_var]], L)
       fit_data <- boot_data[boot_data[[status_var]] == 1 & is.finite(weights), ]
       fit_weights <- weights[boot_data[[status_var]] == 1 & is.finite(weights)]
       
@@ -71,13 +71,13 @@
 # Power Calculation -------------------------------------------------------
 
 linear.power.boot.app <- function(pilot_data, time_var, status_var, arm_var,
-                              sample_sizes, linear_terms = NULL, tau, n_sim = 1000, alpha = 0.05, parallel.cores) {
+                              sample_sizes, linear_terms = NULL, L, n_sim = 1000, alpha = 0.05, parallel.cores) {
   
   start_time <- proc.time()
   if (is.null(sample_sizes)) stop("You must provide a numeric vector for 'sample_sizes'.")
   
   # Get the configured simulation runner
-  simulation_runner <- .get_linear_ipcw_simulation_runner(pilot_data, time_var, status_var, arm_var, linear_terms, tau, alpha, n_sim)
+  simulation_runner <- .get_linear_ipcw_simulation_runner(pilot_data, time_var, status_var, arm_var, linear_terms, L, alpha, n_sim)
   
   cat("--- Calculating Power (Method: Linear RMST with IPCW) ---\n")
   all_sim_outputs <- vector("list", length(sample_sizes))
@@ -127,7 +127,7 @@ linear.power.boot.app <- function(pilot_data, time_var, status_var, arm_var,
 # Sample_Size_Search ------------------------------------------------------
 linear.ss.boot.app <- function(pilot_data, time_var, status_var, arm_var,
                            target_power,
-                           linear_terms = NULL, tau, n_sim = 1000, alpha = 0.05,
+                           linear_terms = NULL, L, n_sim = 1000, alpha = 0.05,
                            patience = 5,
                            n_start = 50, n_step = 25, max_n_per_arm = 2000, parallel.cores) {
   
@@ -135,7 +135,7 @@ linear.ss.boot.app <- function(pilot_data, time_var, status_var, arm_var,
   if (is.null(target_power)) stop("You must provide a single numeric value for 'target_power'.")
   
   # Get the configured simulation runner
-  simulation_runner <- .get_linear_ipcw_simulation_runner(pilot_data, time_var, status_var, arm_var, linear_terms, tau, alpha, n_sim)
+  simulation_runner <- .get_linear_ipcw_simulation_runner(pilot_data, time_var, status_var, arm_var, linear_terms, L, alpha, n_sim)
   
   # --- Main Search Loop ---
   cat("--- Searching for Sample Size (Method: Linear RMST with IPCW) ---\n")
