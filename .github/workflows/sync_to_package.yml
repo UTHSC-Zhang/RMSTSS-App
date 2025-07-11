@@ -1,9 +1,9 @@
-name: Sync .R and .Rmd files to UTHSC-package repo
+name: Sync .R files to RMSTSS-Package R directory
 
 on:
   push:
-    branches:
-      - main
+    paths:
+      - 'R/**/*.R'     # Trigger only when .R files change in app/
 
 jobs:
   sync-package:
@@ -19,30 +19,27 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Clone UTHSC-package repo
+      - name: Clone RMSTSS-Package repo
         env:
           TOKEN: ${{ secrets.PACKAGE_REPO_TOKEN }}
         run: |
           git clone https://x-access-token:${TOKEN}@github.com/UTHSC-Zhang/RMSTSS-Package.git
 
-      - name: Sync .R and .Rmd files to UTHSC-package
+      - name: Sync .R files from app/ to R/ in RMSTSS-Package
         run: |
-          # This command syncs only .R and .Rmd files while preserving directories
+          mkdir -p RMSTSS-Package/R
           rsync -av --delete \
-            --exclude '.git*' \
             --include '*/' \
             --include '*.R' \
-            --include '*.Rmd' \
             --exclude '*' \
-            ./ RMSTSS-Package/inst/shiny_app/
+            app/ RMSTSS-Package/R/
 
       - name: Commit and push changes
         working-directory: RMSTSS-Package
         run: |
           git add .
           if ! git diff --cached --quiet; then
-            git commit -m "Sync .R and .Rmd files from UTHSC-App on $(date +'%Y-%m-%d %H:%M:%S')"
+            git commit -m "Sync .R files from app/ to R/ on $(date +'%Y-%m-%d %H:%M:%S')"
             git push origin main
           else
             echo "No changes to commit"
-          fi
