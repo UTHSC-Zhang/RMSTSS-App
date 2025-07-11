@@ -1,3 +1,4 @@
+
 .estimate_linear_ipcw_params <- function(pilot_data, time_var, status_var, arm_var, linear_terms, tau) {
   
   cat("--- Estimating parameters from pilot data for analytic calculation... ---\n")

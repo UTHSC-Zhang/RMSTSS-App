@@ -1,7 +1,3 @@
-# In R/survival_diagnostics.R
-
-library(survival)
-library(ggplot2)
 
 .run_survival_diagnostics <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL) {
   
