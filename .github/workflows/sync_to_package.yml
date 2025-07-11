@@ -30,12 +30,13 @@ jobs:
         run: |
           rsync -av --delete R/ RMSTSS-Package/R/
 
-      - name: Commit and push if changes
-        working-directory: RMSTSS-Package
-        run: |
-          git add R/
-          if ! git diff --cached --quiet; then
-            git commit -m "Auto-sync: Updated R/ folder from RMSTSS-App on $(date +'%Y-%m-%d %H:%M:%S')"
-            git push origin main
-          else
-            echo "No changes to commit"
+    - name: Commit and push if changes
+  working-directory: RMSTSS-Package
+  run: |
+    git add R/
+    if ! git diff --cached --quiet; then
+      git commit -m "Auto-sync: Updated R/ folder from RMSTSS-App on $(date +'%Y-%m-%d %H:%M:%S')"
+      git push origin main
+    else
+      echo "No changes to commit"
+
