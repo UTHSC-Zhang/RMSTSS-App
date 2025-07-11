@@ -17,7 +17,7 @@
   if (nrow(problem_strata) > 0) {
     strata_names <- paste(problem_strata[[strata_var]], collapse = ", ")
     error_msg <- paste(
-      "Insufficient events in one or more strata. Each stratum must have at least",
+      "Insufficient events in one or more strata. Each stratum must have at least ",
       min_events_per_stratum, "events.",
       "Problematic strata:", strata_names
     )
