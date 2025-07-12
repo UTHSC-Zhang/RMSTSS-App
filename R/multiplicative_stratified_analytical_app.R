@@ -15,7 +15,7 @@
   df <- pilot_data[stats::complete.cases(pilot_data[, all_vars]), ]
   n_pilot <- nrow(df)
   min_events_per_stratum <- 2 # Define a minimum threshold
-  event_counts <- aggregate(as.formula(paste(status_var, "~", strata_var)), 
+  event_counts <- stats::aggregate(as.formula(paste(status_var, "~", strata_var)), 
                             data = df, 
                             FUN = sum)
   
