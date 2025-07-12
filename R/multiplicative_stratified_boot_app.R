@@ -1,4 +1,12 @@
-
+#' @title Internal Factory for RMST Simulation Functions (Bootstrap)
+#' @description This is a non-exported helper function that sets up and returns
+#'   another function responsible for running the core bootstrap simulation logic. This
+#'   factory pattern helps reduce code duplication between the public-facing
+#'   power and sample size functions. It prepares the model formula and pilot data
+#'   and returns the `run_power_sim` function which is then called repeatedly.
+#' @return A function that takes `n_per_stratum` and runs the simulation.
+#' @keywords internal
+#' @export
 .get_internal_simulation_runner <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                                             linear_terms, L, alpha, n_sim, parallel.cores) {
 
@@ -106,6 +114,20 @@
 
 
 # Power Calculation -------------------------------------------------------
+#' @title Analyze Power for a Multiplicative Stratified RMST Model via Simulation
+#' @description Performs power analysis based on a multiplicative model for RMST
+#'   for stratified trials, using a bootstrap simulation approach.
+#'   #' @param pilot_data A `data.frame` with pilot study data.
+#' @param time_var A character string for the time-to-event variable.
+#' @param status_var A character string for the event status variable.
+#' @param arm_var A character string for the treatment arm variable.
+#' @param strata_var A character string for the stratification variable.
+#' @param sample_sizes A numeric vector of sample sizes *per stratum* to calculate power for.
+#' @param linear_terms Optional character vector of covariates for the model.
+#' @param tau The numeric truncation time for RMST.
+#' @param n_sim Number of bootstrap simulations.
+#' @param alpha The significance level.
+#' @param parallel.cores Number of cores for parallel processing.
 #' @keywords internal
 #' @export
 MS.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
@@ -179,6 +201,24 @@ MS.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_
 
 # Sample Size Search ------------------------------------------------------
 
+#' @title Estimate Sample Size for a Multiplicative Stratified RMST Model via Simulation
+#' @description Performs sample size estimation based on a multiplicative model for RMST
+#'   for stratified trials, using iterative bootstrap simulations.
+#' @param pilot_data A `data.frame` with pilot study data.
+#' @param time_var A character string for the time-to-event variable.
+#' @param status_var A character string for the event status variable.
+#' @param arm_var A character string for the treatment arm variable.
+#' @param strata_var A character string for the stratification variable.
+#' @param target_power A single numeric value for the target power (e.g., 0.80).
+#' @param linear_terms Optional vector of covariates for the model.
+#' @param tau The numeric truncation time for RMST.
+#' @param n_sim Number of bootstrap simulations per search step.
+#' @param alpha The significance level.
+#' @param parallel.cores Number of cores for parallel processing.
+#' @param patience Number of consecutive non-improving steps in the search before terminating.
+#' @param n_start Starting sample size per stratum for the search.
+#' @param n_step Increment for the sample size search.
+#' @param max_n_per_arm Maximum sample size per stratum to try.
 #' @keywords internal
 #' @export
 MS.ss.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,

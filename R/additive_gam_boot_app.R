@@ -1,6 +1,8 @@
 
-#' @description An internal function for the Shiny app.
-#' @keywords internal
+#' @title Internal Factory for Additive GAM RMST Simulation
+#' @description This internal function prepares and returns a configured simulation function.
+#' @return A function that takes `n_per_group` and runs the simulation.
+#' @keywords interna
 #' @export
 .get_gam_simulation_runner <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                                        linear_terms, smooth_terms, L, alpha, n_sim, parallel.cores) {
@@ -96,7 +98,13 @@
 
 
 # Power Calculations -------------------------------------------------------
-#' @description An internal function for the Shiny app.
+
+#' @title Calculate Power for a Semiparametric Additive RMST Model via Simulation
+#' @description Performs a power analysis for given sample sizes using a flexible,
+#'   semiparametric additive model for the RMST based on pseudo-observations.
+#' @inheritParams .get_gam_simulation_runner
+#' @param sample_sizes A numeric vector of sample sizes per arm/stratum.
+#' @return A list containing results.
 #' @keywords internal
 #' @export
 additive.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL,
@@ -169,7 +177,15 @@ additive.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, s
 # Sample Size Search ------------------------------------------------------
 
 
-#' @description An internal function for the Shiny app.
+#' @title Find Sample Size for a Semiparametric Additive RMST Model via Simulation
+#' @description Performs an iterative sample size search to achieve a target power.
+#' @inheritParams .get_gam_simulation_runner
+#' @param target_power A single numeric value for the target power.
+#' @param patience Number of consecutive non-improving steps before terminating.
+#' @param n_start The starting sample size per arm/stratum for the search.
+#' @param n_step The increment in sample size at each step of the search.
+#' @param max_n_per_arm The maximum sample size per arm/stratum to search up to.
+#' @return A list containing results.
 #' @keywords internal
 #' @export
 additive.ss.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL,

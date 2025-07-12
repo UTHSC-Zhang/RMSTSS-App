@@ -1,4 +1,7 @@
-#' @importFrom stats aggregate
+#' @title Internal Helper to Estimate Multiplicative Stratified Model Parameters
+#' @description This internal function contains the common logic for estimating the
+#'   log-RMST ratio and its variance from pilot data using a log-linear approximation.
+#' @return A list containing `beta_effect`, `se_beta_n1`, and `n_strata`.
 #' @keywords internal
 #' @export
 .estimate_multiplicative_stratified_params <- function(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, L) {
@@ -95,6 +98,13 @@
 
 
 # Power Calculation -------------------------------------------------------
+#' @title Analyze Power for a Multiplicative Stratified RMST Model (Analytic)
+#' @description Performs power analysis for a multiplicative, stratified RMST model using an
+#'   analytic method based on the work of Wang et al. (2019).
+#' @inheritParams .estimate_multiplicative_stratified_params
+#' @param sample_sizes A numeric vector of sample sizes *per stratum* to calculate power for.
+#' @param alpha The significance level (Type I error rate).
+#' @return A list containing results.
 #' @keywords internal
 #' @export
 MS.power.analytical.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
@@ -135,6 +145,16 @@ MS.power.analytical.app <- function(pilot_data, time_var, status_var, arm_var, s
 }
 
 # Sample Size Search ------------------------------------------------------
+#' @title Find Sample Size for a Multiplicative Stratified RMST Model (Analytic)
+#' @description Calculates the required sample size for a target power using the analytic
+#'   (approximate) method from Wang et al. (2019).
+#' @inheritParams .estimate_multiplicative_stratified_params
+#' @param target_power A single numeric value for the desired power.
+#' @param alpha The significance level (Type I error rate).
+#' @param n_start The starting sample size *per stratum* for the search.
+#' @param n_step The increment in sample size at each step of the search.
+#' @param max_n_per_arm The maximum sample size *per stratum* to search up to.
+#' @return A list containing results.
 #' @keywords internal
 #' @export
 MS.ss.analytical.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,

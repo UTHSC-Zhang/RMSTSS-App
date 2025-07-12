@@ -1,4 +1,10 @@
-#' @importFrom stats aggregate
+#' @title Internal Helper to Estimate Additive Stratified Model Parameters
+#' @description This internal function contains the common logic for estimating the
+#'   treatment effect and its variance from pilot data for the additive stratified model.
+#'   It is called by both the power and sample size calculation functions to avoid
+#'   code duplication.
+#' @return A list containing `beta_effect` (the estimated treatment effect) and
+#'   `se_beta_n1` (the standard error for a sample size of 1).
 #' @keywords internal
 #' @export
 .estimate_additive_stratified_params <- function(pilot_data, time_var, status_var, arm_var, strata_var, linear_terms, L) {
@@ -137,6 +143,12 @@
   ))
 }
 
+#' @title Analyze Power for a Stratified Additive RMST Model (Analytic)
+#' @description Performs power analysis for a stratified, additive RMST model.
+#' @inheritParams .estimate_additive_stratified_params
+#' @param sample_sizes A numeric vector of sample sizes *per stratum* to calculate power for.
+#' @param alpha The significance level (Type I error rate).
+#' @return A list containing the results.
 #' @keywords internal
 #' @export
 additive.power.analytical.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,
@@ -176,6 +188,16 @@ additive.power.analytical.app <- function(pilot_data, time_var, status_var, arm_
   return(list(results_data = results_df, results_plot = p, results_summary = results_summary))
 }
 
+
+#' @title Find Sample Size for a Stratified Additive RMST Model (Analytic)
+#' @description Calculates the required sample size for a target power.
+#' @inheritParams .estimate_additive_stratified_params
+#' @param target_power A single numeric value for the desired power.
+#' @param n_start The starting sample size *per stratum* for the search.
+#' @param n_step The increment in sample size at each step of the search.
+#' @param max_n_per_arm The maximum sample size *per stratum* to search up to.
+#' @param alpha The significance level (Type I error rate).
+#' @return A list containing the results.
 #' @keywords internal
 #' @export
 additive.ss.analytical.app <- function(pilot_data, time_var, status_var, arm_var, strata_var,

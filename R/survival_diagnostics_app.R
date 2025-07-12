@@ -1,7 +1,21 @@
-#' @importFrom survival survfit survdiff Surv
-#' @importFrom stats pchisq
-#' @importFrom scales pvalue
-#' @importFrom ggplot2 ggplot aes fortify geom_step geom_ribbon labs coord_cartesian annotate theme_minimal facet_wrap
+#' Run Survival Diagnostics for Pilot Data
+#' @title Run Survival Diagnostics for Pilot Data
+#' @description This function performs survival diagnostics on pilot data, including a log-rank test and Kaplan-Meier plot.
+#' @param pilot_data A data frame containing the pilot data with survival information.
+#' @param time_var A string specifying the name of the time variable in the pilot data.
+#' @param status_var A string specifying the name of the status variable in the pilot data (1 for event, 0 for censored).
+#' @param arm_var A string specifying the name of the treatment arm variable in the pilot data.
+#' @param strata_var An optional string specifying the name of the stratification variable in the pilot data.
+#' #' @return A list containing:
+#' #' \item{km_plot}{A ggplot object representing the Kaplan-Meier survival curve.}
+#' #' \item{logrank_summary}{A data frame summarizing the results of the log-rank test.}
+#' #' @details The function performs the following steps:
+#' #' \itemize{
+#' #'   \item Perform a log-rank test to compare survival distributions between treatment arms.
+#' #' #'   \item Generate a Kaplan-Meier survival curve for the treatment arms.
+#' #' #'   \item If a stratification variable is provided, the Kaplan-Meier plot will be faceted by this variable.
+#' #' #' }
+
 #' @keywords internal
 #' @export
 .run_survival_diagnostics <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL) {
