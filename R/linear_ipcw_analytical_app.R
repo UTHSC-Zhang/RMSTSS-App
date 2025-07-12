@@ -1,6 +1,8 @@
+
 #' @description An internal function for the Shiny app.
 #' @keywords internal
 #' @export
+
 .estimate_linear_ipcw_params <- function(pilot_data, time_var, status_var, arm_var, linear_terms, L) {
   
   cat("--- Estimating parameters from pilot data for analytic calculation... ---\n")
@@ -128,6 +130,7 @@ linear.power.analytical.app <- function(pilot_data, time_var, status_var, arm_va
 }
 
 # Sample Size Search ------------------------------------------------------
+
 #' @keywords internal
 #' @export
 linear.ss.analytical.app <- function(pilot_data, time_var, status_var, arm_var,
