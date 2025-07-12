@@ -124,7 +124,7 @@
 #' @param strata_var A character string for the stratification variable.
 #' @param sample_sizes A numeric vector of sample sizes *per stratum* to calculate power for.
 #' @param linear_terms Optional character vector of covariates for the model.
-#' @param tau The numeric truncation time for RMST.
+#' @param L The numeric truncation time for RMST.
 #' @param n_sim Number of bootstrap simulations.
 #' @param alpha The significance level.
 #' @param parallel.cores Number of cores for parallel processing.
@@ -211,7 +211,7 @@ MS.power.boot.app <- function(pilot_data, time_var, status_var, arm_var, strata_
 #' @param strata_var A character string for the stratification variable.
 #' @param target_power A single numeric value for the target power (e.g., 0.80).
 #' @param linear_terms Optional vector of covariates for the model.
-#' @param tau The numeric truncation time for RMST.
+#' @param L The numeric truncation time for RMST.
 #' @param n_sim Number of bootstrap simulations per search step.
 #' @param alpha The significance level.
 #' @param parallel.cores Number of cores for parallel processing.

@@ -2,7 +2,7 @@
 #' @title Internal Factory for Additive GAM RMST Simulation
 #' @description This internal function prepares and returns a configured simulation function.
 #' @return A function that takes `n_per_group` and runs the simulation.
-#' @keywords interna
+#' @keywords internal
 #' @export
 .get_gam_simulation_runner <- function(pilot_data, time_var, status_var, arm_var, strata_var,
                                        linear_terms, smooth_terms, L, alpha, n_sim, parallel.cores) {

@@ -6,16 +6,6 @@
 #' @param status_var A string specifying the name of the status variable in the pilot data (1 for event, 0 for censored).
 #' @param arm_var A string specifying the name of the treatment arm variable in the pilot data.
 #' @param strata_var An optional string specifying the name of the stratification variable in the pilot data.
-#' #' @return A list containing:
-#' #' \item{km_plot}{A ggplot object representing the Kaplan-Meier survival curve.}
-#' #' \item{logrank_summary}{A data frame summarizing the results of the log-rank test.}
-#' #' @details The function performs the following steps:
-#' #' \itemize{
-#' #'   \item Perform a log-rank test to compare survival distributions between treatment arms.
-#' #' #'   \item Generate a Kaplan-Meier survival curve for the treatment arms.
-#' #' #'   \item If a stratification variable is provided, the Kaplan-Meier plot will be faceted by this variable.
-#' #' #' }
-
 #' @keywords internal
 #' @export
 .run_survival_diagnostics <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL) {
