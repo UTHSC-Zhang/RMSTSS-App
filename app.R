@@ -336,14 +336,20 @@ server <- function(input, output, session) {
   })
   
   output$survival_plotly_output <- renderPlotly({
-    req(run_output()$results$analysis_data_for_plot)
+    req(run_output()$results$analysis_data_for_plot, input$alpha)
     plot_data <- run_output()$results$analysis_data_for_plot
     
+    # Create the survival fit object without the conf.level argument
     fit <- survfit(Surv(time, status) ~ arm, data = plot_data)
     
+    # Pass the confidence level directly to ggsurvplot
     p <- ggsurvplot(
       fit,
       data = plot_data,
+      conf.int = TRUE,
+      conf.int.alpha = 0.3,
+      conf.int.style = "ribbon",
+      conf.level = 1 - input$alpha, # Pass conf.level here
       palette = c("#007BFF", "#D9534F"),
       legend.title = input$arm_var,
       xlab = paste("Time (in units of '", input$time_var, "')"),

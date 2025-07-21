@@ -6,9 +6,10 @@
 #' @param status_var A string specifying the name of the status variable in the pilot data (1 for event, 0 for censored).
 #' @param arm_var A string specifying the name of the treatment arm variable in the pilot data.
 #' @param strata_var An optional string specifying the name of the stratification variable in the pilot data.
+#' @param alpha The significance level for calculating the confidence interval (default is 0.05).
 #' @keywords internal
 #' @export
-.run_survival_diagnostics <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL) {
+.run_survival_diagnostics <- function(pilot_data, time_var, status_var, arm_var, strata_var = NULL, alpha = 0.05) {
   
   df <- pilot_data
   df[[arm_var]] <- as.factor(df[[arm_var]])
@@ -42,15 +43,21 @@
   
   # --- 2. Generate Kaplan-Meier Plot ---
   surv_formula <- as.formula(paste("Surv(", time_var, ",", status_var, ") ~", arm_var))
-  fit <- survival::survfit(surv_formula, data = df)
+  # Calculate fit using the specified alpha for the confidence level
+  fit <- survival::survfit(surv_formula, data = df, conf.level = 1 - alpha)
   fit_fortified <- ggplot2::fortify(fit)
   
-  km_plot <- ggplot2::ggplot(fit_fortified, ggplot2::aes(x = .data$time, y = .data$surv, color = .data$strata, fill = .data$strata)) +
-    ggplot2::geom_step(linewidth = 1) +
-    ggplot2::geom_ribbon(aes(ymin = .data$lower, ymax = .data$upper), alpha = 0.2, linetype = 0) +
+  # Updated plotting logic for clarity
+  km_plot <- ggplot2::ggplot(fit_fortified, ggplot2::aes(x = .data$time, y = .data$surv)) +
+    # Add the confidence interval ribbon with a dedicated fill aesthetic
+    ggplot2::geom_ribbon(aes(ymin = .data$lower, ymax = .data$upper, fill = .data$strata), alpha = 0.3) +
+    # Add the survival curve with a dedicated color aesthetic
+    ggplot2::geom_step(aes(color = .data$strata), linewidth = 1) +
     ggplot2::labs(
       title = "Kaplan-Meier Curve by Treatment Arm",
-      x = "Time", y = "Survival Probability", color = "Arm", fill = "Arm"
+      x = "Time", y = "Survival Probability", 
+      color = "Arm", # Legend title for color (lines)
+      fill = "Arm"   # Legend title for fill (ribbons)
     ) +
     ggplot2::coord_cartesian(ylim = c(0, 1)) +
     ggplot2::theme_minimal()
