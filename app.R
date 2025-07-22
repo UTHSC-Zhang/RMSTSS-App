@@ -11,12 +11,13 @@ lapply(packages, function(pkg) {
 r_files <- list.files(path = "R/", pattern = "\\.R$", full.names = TRUE)
 sapply(r_files, source)
 cat("All R scripts in the 'R/' directory have been sourced.\n")
-
+# Read license file 
+license_content <- paste(readLines("LICENSE"), collapse = "\n")
 # --- UI Definition ---
 ui <- fluidPage(
   theme = bs_theme(version = 5, bootswatch = "flatly"),
   useShinyjs(),
-  titlePanel("RMSTdesign: Power and Sample Size Calculator"),
+  titlePanel("RMSTSS: Power and Sample Size Calculator"),
   
   sidebarLayout(
     sidebarPanel(
@@ -72,14 +73,19 @@ ui <- fluidPage(
       tabsetPanel(
         id = "main_tabs",
         tabPanel("Instructions",
-                 h3("Welcome to RMSTdesign!"),
+                 h3("Welcome to RMSTSS!"),
                  p("This application allows you to perform power and sample size calculations for clinical trials using Restricted Mean Survival Time (RMST)."),
                  tags$ol(
                    tags$li("Upload a CSV file containing your pilot study data."),
                    tags$li("Map the columns from your data to the required variables."),
-                   tags$li("Select the desired statistical model and configure the analysis parameters."),
-                   tags$li("Click the 'Run Analysis' button to see the results.")
-                 )
+                   tags$li("Select the desired statistical model and analysis type."),
+                   tags$li("Specify the target for your analysis, such as sample sizes or target power."),
+                   tags$li("Click the 'Run Analysis' button to see the results and console outputs."),
+                   tags$li("Download HTML report from summary tab after analysis is complete.")
+                 ),
+                 hr(), 
+                 h4("License Information"),
+                 verbatimTextOutput("license_display")
         ),
         tabPanel("Data Preview", DT::dataTableOutput("data_preview_table")),
         
@@ -132,7 +138,10 @@ ui <- fluidPage(
 #' @importFrom survminer ggsurvplot
 server <- function(input, output, session) {
   bslib::bs_themer()
-  
+  output$license_display <- renderPrint({
+    req(license_content)
+    cat(license_content)
+  })
   pilot_data_reactive <- reactive({
     req(input$pilot_data_upload)
     tryCatch(read.csv(input$pilot_data_upload$datapath), error = function(e) {
@@ -409,7 +418,7 @@ server <- function(input, output, session) {
   
   output$download_report <- downloadHandler(
     filename = function() {
-      paste0("RMSTdesign_report_", Sys.Date(), ".pdf")
+      paste0("RMSTSS_report_", Sys.Date(), ".pdf")
     },
     content = function(file) {
       req(run_output()$results)

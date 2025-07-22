@@ -5,9 +5,9 @@ account: arnab96
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 15031600
-bundleId: 10598877
+bundleId: 10657187
 url: https://arnab96.shinyapps.io/uthsc-app/
 version: 1
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: .github/workflows/sync_to_package.yml|.Rprofile|LICENSE|README.md|sim.data/dependent_censoring_data.csv|sim.data/generateData.R|sim.data/linear_ipcw_data.csv|sim.data/stratified_data.csv
+ignoredFiles: .github/workflows/sync_to_package.yml|.Rprofile|README.md|sim.data/dependent_censoring_data.csv|sim.data/generateData.R|sim.data/linear_ipcw_data.csv|sim.data/stratified_data.csv
