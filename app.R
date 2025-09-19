@@ -113,7 +113,7 @@ make_inline_template <- function() {
   tf <- tempfile(fileext = ".Rmd")
   txt <- c(
     "---",
-    "title: \"RMSTSS\"",
+    "title: \"RMSTSS Report\"",
     "output: pdf_document",
     "params:",
     "  inputs: NA",
@@ -140,8 +140,50 @@ make_inline_template <- function() {
     "    as.character(z)",
     "  }), sep = \" = \"), collapse = \"; \")",
     "}",
-    "%||% <- function(x,y) if (is.null(x)) y else x",
+    "or_else <- function(x, y) if (is.null(x)) y else x",
     "```",
+    # Add this below the setup chunk
+    "",
+    "This document summarizes the simulation design, analysis configuration, and results for a scenario generated using the RMSTSS tool.",
+    "",
+    "# Covariate Generation Mechanism",
+    "",
+    "```{r covariate-generation, echo=FALSE}",
+    "cov_list <- or_else(params$data_provenance$Covariates_defined, list())",
+    "if (length(cov_list)) {",
+    "  cov_tbl <- do.call(rbind, lapply(cov_list, function(d) {",
+    "    data.frame(",
+    "      Variable     = or_else(d$name, \"\"),",
+    "      Type         = or_else(d$type, \"\"),",
+    "      Distribution = or_else(d$dist, \"\"),",
+    "      Parameters   = to_kv(d$params),",
+    "      stringsAsFactors = FALSE",
+    "    )",
+    "  }))",
+    "  kbl(cov_tbl, booktabs = TRUE, caption = \"Covariate definitions\", row.names = FALSE) %>%",
+    "    kable_styling(latex_options = c(\"striped\", \"hold_position\"))",
+    "} else {",
+    "  cat(\"No covariates were defined or the data were uploaded.\\n\")",
+    "}",
+    "```",
+    "",
+    "# Event Time Generation",
+    "",
+    "```{r event-time, echo=FALSE}",
+    "et <- or_else(params$data_provenance$Event_time, list())",
+    "et_tbl <- data.frame(",
+    "  Field = c(\"Model\", \"Baseline parameters\"),",
+    "  Value = c(",
+    "    as.character(or_else(et$model, or_else(et$Model, \"\"))),",
+    "    to_kv(or_else(et$baseline, or_else(et$Baseline, list())))",
+    "  ),",
+    "  stringsAsFactors = FALSE",
+    ")",
+    "kbl(et_tbl, booktabs = TRUE, caption = \"Event-time model and baseline\",",
+    "    row.names = FALSE, col.names = c(\"Field\",\"Value\")) %>%",
+    "  kable_styling(latex_options = c(\"striped\", \"hold_position\"))",
+    "```",
+    
     "",
     "# Data Generating Mechanism",
     "",
@@ -162,11 +204,11 @@ make_inline_template <- function() {
     "  if (!is.null(cov_list) && length(cov_list)) {",
     "    cov_tbl <- do.call(rbind, lapply(cov_list, function(d){",
     "      data.frame(",
-    "        Variable     = d$name %||% \"\",",
-    "        Type         = d$type %||% \"\",",
-    "        Distribution = d$dist %||% \"\",",
+    "        Variable     = or_else(d$name, \"\"),",
+    "        Type         = or_else(d$type, \"\"),",
+    "        Distribution = or_else(d$dist, \"\"),",
     "        Parameters   = to_kv(d$params),",
-    "        Transform    = paste(d$transform %||% character(0), collapse = \", \"),",
+    "        Transform    = paste(or_else(d$transform, character(0)), collapse = \", \"),",
     "        stringsAsFactors = FALSE",
     "      )",
     "    }))",
@@ -179,7 +221,7 @@ make_inline_template <- function() {
     "    et <- prov$Event_time",
     "    et_tbl <- data.frame(",
     "      Field = c(\"Model\", \"Baseline parameters\"),",
-    "      Value = c(as.character(et$model %||% et$Model %||% \"\"), to_kv(et$baseline %||% et$Baseline)),",
+    "      Value = c(as.character(or_else(et$model, or_else(et$Model, \"\"))), to_kv(or_else(et$baseline, et$Baseline))),",
     "      stringsAsFactors = FALSE",
     "    )",
     "    kbl(et_tbl, booktabs = TRUE, caption = \"Event-time model and baseline\",",
@@ -192,11 +234,11 @@ make_inline_template <- function() {
     "    eff <- prov$Effects",
     "    st  <- prov$Strata",
     "    rows <- list(",
-    "      c(\"Assignment\", as.character(tr$assignment %||% tr$Assignment %||% \"\")),",
-    "      c(\"Allocation\", as.character(tr$allocation %||% tr$Allocation %||% \"\")),",
-    "      c(\"Treatment effect\", as.character(eff$treatment %||% eff$Treatment %||% \"\")),",
-    "      c(\"Intercept\", as.character(eff$intercept %||% eff$Intercept %||% \"\")),",
-    "      c(\"Formula\", as.character(eff$formula %||% eff$Formula %||% \"\")),",
+    "      c(\"Assignment\", as.character(or_else(tr$assignment, or_else(tr$Assignment, \"\")))),",
+    "      c(\"Allocation\", as.character(or_else(tr$allocation, or_else(tr$Allocation, \"\")))),",
+    "      c(\"Treatment effect\", as.character(or_else(eff$treatment, or_else(eff$Treatment, \"\")))),",
+    "      c(\"Intercept\", as.character(or_else(eff$intercept, or_else(eff$Intercept, \"\")))),",
+    "      c(\"Formula\", as.character(or_else(eff$formula, or_else(eff$Formula, \"\")))),",
     "      c(\"Beta\", to_kv(eff$beta))",
     "    )",
     "    if (!is.null(st)) rows <- c(rows, list(c(\"Stratify by\", paste(st, collapse = \", \"))))",
@@ -214,15 +256,15 @@ make_inline_template <- function() {
     "  if (!is.null(prov$Censoring) || !is.null(prov$Frailty)) {",
     "    cz <- prov$Censoring; fr <- prov$Frailty",
     "    rows <- list(",
-    "      c(\"Censoring mode\", as.character(cz$mode %||% cz$Mode %||% \"\")),",
-    "      c(\"Target overall censoring\", as.character(cz$target %||% cz$Target %||% \"\")),",
-    "      c(\"Administrative time\", as.character(cz$admin_time %||% cz$Admin_time %||% \"\"))",
+    "      c(\"Censoring mode\", as.character(or_else(cz$mode, or_else(cz$Mode, \"\")))),",
+    "      c(\"Target overall censoring\", as.character(or_else(cz$target, or_else(cz$Target, \"\")))),",
+    "      c(\"Administrative time\", as.character(or_else(cz$admin_time, or_else(cz$Admin_time, \"\"))))",
     "    )",
     "    if (!is.null(fr)) {",
     "      rows <- c(rows, list(",
-    "        c(\"Frailty type\", as.character(fr$type %||% fr$Type %||% \"\")),",
-    "        c(\"Frailty variance\", as.character(fr$var %||% fr$Var %||% \"\")),",
-    "        c(\"Frailty group\", as.character(fr$group %||% fr$Group %||% \"\"))",
+    "        c(\"Frailty type\", as.character(or_else(fr$type, or_else(fr$Type, \"\")))),",
+    "        c(\"Frailty variance\", as.character(or_else(fr$var, or_else(fr$Var, \"\")))),",
+    "        c(\"Frailty group\", as.character(or_else(fr$group, or_else(fr$Group, \"\"))))",
     "      ))",
     "    }",
     "    cz_tbl <- data.frame(Field = vapply(rows, `[[`, \"\", 1),",
@@ -302,6 +344,7 @@ make_inline_template <- function() {
   writeLines(txt, tf)
   tf
 }
+
 
 report_inputs_builder <- function(input) {
   list(
@@ -932,10 +975,10 @@ server <- function(input, output, session) {
   
   output$download_report_html <- downloadHandler(
     filename = function() paste0("RMSTSS_report_", Sys.Date(), ".html"),
-    contentType = "text/html",
+    contentType = "application/html",
     content = function(file) {
       req(run_output()$results)
-      id <- showNotification("Generating HTML report…", type="message", duration = NULL, closeButton = FALSE)
+      id <- showNotification("Generating HTML report…", type = "message", duration = NULL, closeButton = FALSE)
       on.exit(removeNotification(id), add = TRUE)
       tpl <- make_inline_template()
       rmarkdown::render(
@@ -950,11 +993,12 @@ server <- function(input, output, session) {
           data_provenance = data_provenance(),
           data            = get_pilot_data()
         ),
-        envir         = new.env(parent = globalenv()),
-        clean         = TRUE
+        envir = new.env(parent = globalenv()),
+        clean = TRUE
       )
     }
   )
+  
   
   # Reveal Step2+3 when data is present; hide simulate after success
   observe({
@@ -963,5 +1007,5 @@ server <- function(input, output, session) {
     shinyjs::toggle(id = "upload_panel",   condition = is.null(rv$data_df) && rv$data_mode == "Upload")
   })
 }
-
+options(shiny.launch.browser = TRUE)
 shinyApp(ui, server)
