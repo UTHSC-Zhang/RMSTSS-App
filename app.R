@@ -1,4 +1,4 @@
-# app.R — RMSTSS (single file, no external Rmd required)
+# app.R â€” RMSTpowerBoost (single file, no external Rmd required)
 
 # ------------------ Packages ------------------
 packages <- c(
@@ -168,12 +168,12 @@ assemble_beta <- function(cov_defs, user_betas, include_intercept = TRUE, interc
   out
 }
 
-# Create an inline Rmd for both PDF and HTML — includes coefficients & provenance
+# Create an inline Rmd for both PDF and HTML â€” includes coefficients & provenance
 make_inline_template <- function() {
   tf <- tempfile(fileext = ".Rmd")
   txt <- c(
     "---",
-    "title: \"RMSTSS Report\"",
+    "title: \"RMSTpowerBoost Report\"",
     "output: pdf_document",
     "params:",
     "  inputs: NA",
@@ -204,7 +204,7 @@ make_inline_template <- function() {
     "```",
     # Add this below the setup chunk
     "",
-    "This document summarizes the simulation design, analysis configuration, and results for a scenario generated using the RMSTSS tool.",
+    "This document summarizes the simulation design, analysis configuration, and results for a scenario generated using the RMSTpowerBoost tool.",
     "",
     "# Covariate Generation Mechanism",
     "",
@@ -373,7 +373,7 @@ make_inline_template <- function() {
     "",
     "```{r logrank-summary, eval = !is.null(params$results$logrank_summary)}",
     "kbl(params$results$logrank_summary, booktabs = TRUE,",
-    "    caption = \"Log–rank test results\", row.names = FALSE) %>%",
+    "    caption = \"Logâ€“rank test results\", row.names = FALSE) %>%",
     "  kable_styling(latex_options = \"hold_position\")",
     "```",
     "",
@@ -423,7 +423,7 @@ report_inputs_builder <- function(input) {
 ui <- fluidPage(
   theme = bs_theme(version = 5, bootswatch = "flatly"),
   useShinyjs(),
-  titlePanel("RMSTSS: Power and Sample Size Calculator"),
+  titlePanel("RMSTpowerBoost: Power and Sample Size Calculator"),
   
   sidebarLayout(
     sidebarPanel(
@@ -438,7 +438,7 @@ ui <- fluidPage(
           h5("1a. Covariate Builder"),
           # Row 1: name/type
           fluidRow(
-            column(6, textInput("cov_name", "Variable name", value = "", placeholder = "x1, x2 … auto if empty")),
+            column(6, textInput("cov_name", "Variable name", value = "", placeholder = "x1, x2 â€¦ auto if empty")),
             column(6, selectInput("cov_type", "Type", choices = c("continuous","categorical")))
           ),
           # Continuous vs Categorical UI
@@ -463,11 +463,11 @@ ui <- fluidPage(
           fluidRow(
             column(4, numericInput("sim_n", "Sample size", value = 300, min = 10)),
             column(4, textInput("sim_allocation", "Allocation (a:b)", value = "1:1")),
-            column(4, numericInput("sim_treat_eff", "Treatment β (arm)", value = -0.2, step = 0.05))
+            column(4, numericInput("sim_treat_eff", "Treatment Î² (arm)", value = -0.2, step = 0.05))
           ),
           fluidRow(
-            column(6, checkboxInput("intercept_in_mm", "Include intercept in model.matrix (β0 inside β)", value = TRUE)),
-            column(6, numericInput("user_intercept", "β0 (used if no intercept in model.matrix)", value = 0))
+            column(6, checkboxInput("intercept_in_mm", "Include intercept in model.matrix (Î²0 inside Î²)", value = TRUE)),
+            column(6, numericInput("user_intercept", "Î²0 (used if no intercept in model.matrix)", value = 0))
           ),
           fluidRow(
             column(6, selectInput("sim_model", "Event-time model",
@@ -496,10 +496,10 @@ ui <- fluidPage(
                                               "Multiplicative Stratified Model","Semiparametric (GAM) Model",
                                               "Dependent Censoring Model"),
                                   selected = "Linear IPCW Model")),
-            column(4, numericInput("L", "RMST L (τ)", value = 365, min = 1))
+            column(4, numericInput("L", "RMST L (Ï„)", value = 365, min = 1))
           ),
           uiOutput("analysis_inputs_ui"),
-          sliderInput("alpha", "Significance Level (α)", min = 0.01, max = 0.1, value = 0.05, step = 0.01),
+          sliderInput("alpha", "Significance Level (Î±)", min = 0.01, max = 0.1, value = 0.05, step = 0.01),
           tags$hr(),
           fluidRow(
             column(4, actionButton("run_analysis", "Run Analysis", icon = icon("play"), class = "btn-primary btn-lg")),
@@ -520,7 +520,7 @@ ui <- fluidPage(
       tabsetPanel(
         id = "main_tabs",
         tabPanel("Instructions",
-                 h3("Welcome to RMSTSS"),
+                 h3("Welcome to RMSTpowerBoost"),
                  p("This tool provides power and sample size analysis using Restricted Mean Survival Time."),
                  tags$ol(
                    tags$li("Step 1: Choose the data source."),
@@ -532,7 +532,7 @@ ui <- fluidPage(
                    tags$ul(
                      tags$li("2a. Map the time, status, and treatment columns."),
                      tags$li("2b. Choose the target (Power or Sample Size) and analysis parameters."),
-                     tags$li("2c. Set the analysis horizon (τ) and the significance level (α).")
+                     tags$li("2c. Set the analysis horizon (Ï„) and the significance level (Î±).")
                    ),
                    tags$li("Run the analysis; download a report (PDF/HTML).")
                  ),
@@ -545,7 +545,7 @@ ui <- fluidPage(
                  h4("Covariate Distributions"),
                  uiOutput("cov_plots_ui"),
                  hr(),
-                 h4("Kaplan–Meier Survival Plot"),
+                 h4("Kaplanâ€“Meier Survival Plot"),
                  plotlyOutput("survival_plotly_output", height = "500px"),
                  hr(),
                  h4("Power vs. Sample Size"),
@@ -596,7 +596,7 @@ server <- function(input, output, session) {
       tagList(
         fluidRow(
           column(6, selectInput("cont_dist", "Distribution", choices = c("normal","lognormal","gamma","weibull","uniform","t","beta"))),
-          column(6, numericInput("cont_beta", "Coefficient β", value = 0))
+          column(6, numericInput("cont_beta", "Coefficient Î²", value = 0))
         ),
         uiOutput("cont_param_ui")
       )
@@ -606,7 +606,7 @@ server <- function(input, output, session) {
         fluidRow(
           column(6, textInput("cat_add_name", "Add category name", placeholder = "auto if blank")),
           column(3, numericInput("cat_add_prob", "Probability", value = NA, min = 0, max = 1, step = 0.01)),
-          column(3, numericInput("cat_add_coef", "Coefficient β", value = 0))
+          column(3, numericInput("cat_add_coef", "Coefficient Î²", value = 0))
         ),
         fluidRow(
           column(6, actionButton("add_cat_row", "Add category", icon=icon("plus"))),
@@ -614,7 +614,7 @@ server <- function(input, output, session) {
         ),
         br(),
         DTOutput("cat_table"),
-        helpText("Tip: If you include intercept in model.matrix, only K−1 coefficients are used (last level’s β is ignored).")
+        helpText("Tip: If you include intercept in model.matrix, only Kâˆ’1 coefficients are used (last levelâ€™s Î² is ignored).")
       )
     }
   })
@@ -671,7 +671,7 @@ server <- function(input, output, session) {
   observeEvent(input$reset_cat_rows, { rv$cat_rows <- tibble::tibble(cat = character(), prob = numeric(), coef = numeric()) })
   output$cat_table <- renderDT({
     if (!nrow(rv$cat_rows)) {
-      DT::datatable(data.frame(Message="No categories yet — add rows above."), options = list(dom='t'), rownames = FALSE)
+      DT::datatable(data.frame(Message="No categories yet â€” add rows above."), options = list(dom='t'), rownames = FALSE)
     } else {
       DT_25(rv$cat_rows)
     }
@@ -693,7 +693,7 @@ server <- function(input, output, session) {
     rv$cat_rows <- tibble::tibble(cat = character(), prob = numeric(), coef = numeric())
   })
   
-  # Helper: auto covariate name x1, x2…
+  # Helper: auto covariate name x1, x2â€¦
   next_cov_name <- reactive({
     nm <- input$cov_name
     if (nzchar(nm)) return(nm)
@@ -825,7 +825,7 @@ server <- function(input, output, session) {
     
     # Build user_betas
     user_betas <- list()
-    if (include_intercept) user_betas[["(Intercept)"]] <- 0 # actual intercept comes from β vector of user per var, not b0
+    if (include_intercept) user_betas[["(Intercept)"]] <- 0 # actual intercept comes from Î² vector of user per var, not b0
     for (d in rv$covariates) {
       if (d$type == "continuous") {
         user_betas[[d$name]] <- as.numeric(d$beta)
@@ -911,7 +911,7 @@ server <- function(input, output, session) {
       Event_time = list(model = input$sim_model, baseline = baseline),
       Treatment  = list(assignment = "randomization", allocation = input$sim_allocation),
       Effects    = list(treatment = input$sim_treat_eff,
-                        intercept_report = if (include_intercept) "(in model.matrix β)" else input$user_intercept,
+                        intercept_report = if (include_intercept) "(in model.matrix Î²)" else input$user_intercept,
                         intercept_in_mm = include_intercept,
                         formula = deparse(form),
                         mm_cols = mm_cols),
@@ -998,7 +998,7 @@ server <- function(input, output, session) {
           )
           analysis_data_for_plot <- analysis_data
         })
-        setProgress(0.8, detail = "Computing power curve (placeholder)…")
+        setProgress(0.8, detail = "Computing power curve (placeholder)â€¦")
         results_plot <- ggplot(data.frame(n = c(100,150,200), power = c(0.72,0.81,0.88)),
                                aes(n, power)) + geom_line(color="#17a2b8") + geom_point(color="#d9534f") +
           labs(x = "Sample size per arm", y = "Power") + theme_light()
@@ -1100,11 +1100,11 @@ server <- function(input, output, session) {
   get_pilot_data <- reactive({ rv$data_df })
   
   output$download_report_pdf <- downloadHandler(
-    filename = function() paste0("RMSTSS_report_", Sys.Date(), ".pdf"),
+    filename = function() paste0("RMSTpowerBoost_report_", Sys.Date(), ".pdf"),
     contentType = "application/pdf",
     content = function(file) {
       req(run_output()$results)
-      id <- showNotification("Generating PDF report…", type="message", duration = NULL, closeButton = FALSE)
+      id <- showNotification("Generating PDF reportâ€¦", type="message", duration = NULL, closeButton = FALSE)
       on.exit(removeNotification(id), add = TRUE)
       tpl <- make_inline_template()
       rmarkdown::render(
@@ -1125,11 +1125,11 @@ server <- function(input, output, session) {
     }
   )
   output$download_report_html <- downloadHandler(
-    filename = function() paste0("RMSTSS_report_", Sys.Date(), ".html"),
+    filename = function() paste0("RMSTpowerBoost_report_", Sys.Date(), ".html"),
     contentType = "text/html",
     content = function(file) {
       req(run_output()$results)
-      id <- showNotification("Generating HTML report…", type="message", duration = NULL, closeButton = FALSE)
+      id <- showNotification("Generating HTML reportâ€¦", type="message", duration = NULL, closeButton = FALSE)
       on.exit(removeNotification(id), add = TRUE)
       tpl <- make_inline_template()
       rmarkdown::render(

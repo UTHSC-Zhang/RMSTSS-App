@@ -10,7 +10,7 @@ This repository contains the source code for the `RMSTdesign` web application, a
 
 The easiest way to use the calculator is to access the live, deployed version directly in your web browser. No installation is required.
 
-### **[➡️ Access the Live Application Here](https://arnab96.shinyapps.io/uthsc-app/)**
+### **[âž¡ï¸ Access the Live Application Here](https://arnab96.shinyapps.io/uthsc-app/)**
 
 -----
 
@@ -41,7 +41,7 @@ It is designed for biostatisticians, clinical trialists, and researchers who nee
 
 This application is powered by the **`RMSTdesign`** R package, which contains all the underlying statistical functions. For users who want to integrate these calculations into their own R scripts, see the full documentation, or contribute to the project, please visit the official package repository.
 
-  * **Package Website & Source Code**: [**Click Here**](https://uthsc-zhang.github.io/RMSTSS-Package/articles/RMSTSS.html)
+  * **Package Website & Source Code**: [**Click Here**](https://uthsc-zhang.github.io/RMSTpowerBoost-Package/articles/RMSTpowerBoost.html)
 
 -----
 

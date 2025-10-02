@@ -1,4 +1,4 @@
-name: Sync R files to RMSTSS-Package
+name: Sync R files to RMSTpowerBoost-Package
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout RMSTSS-App repo
+      - name: Checkout RMSTpowerBoost-App repo
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
@@ -20,14 +20,14 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Clone RMSTSS-Package repo
+      - name: Clone RMSTpowerBoost-Package repo
         env:
           TOKEN: ${{ secrets.PACKAGE_REPO_TOKEN }}
         run: |
-          git clone https://x-access-token:${TOKEN}@github.com/UTHSC-Zhang/RMSTSS-Package.git
+          git clone https://x-access-token:${TOKEN}@github.com/UTHSC-Zhang/RMSTpowerBoost-Package.git
 
       - name: Sync R/ folder from App to Package
         run: |
-          rsync -av --delete R/ RMSTSS-Package/R/
+          rsync -av --delete R/ RMSTpowerBoost-Package/R/
 
   
