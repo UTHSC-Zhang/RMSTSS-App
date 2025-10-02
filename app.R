@@ -38,7 +38,6 @@ covariate_summary <- function(df, arm_var = NULL) {
   cont_vars <- vars[is_num]
   cat_vars  <- vars[!is_num]
   out <- list()
-  
   if (length(cont_vars)) {
     cont_tab <- purrr::map_df(cont_vars, function(v) {
       x <- suppressWarnings(as.numeric(df[[v]]))
@@ -56,7 +55,6 @@ covariate_summary <- function(df, arm_var = NULL) {
     })
     out$continuous <- cont_tab
   }
-  
   if (length(cat_vars)) {
     cat_tab <- purrr::map_df(cat_vars, function(v) {
       x <- as_factor_safe(df[[v]])
@@ -72,7 +70,6 @@ covariate_summary <- function(df, arm_var = NULL) {
     })
     out$categorical <- cat_tab
   }
-  
   out
 }
 
@@ -85,13 +82,14 @@ covariate_plots <- function(df, arm_var = NULL) {
     x <- df[[v]]
     if (is.numeric(x)) {
       p <- ggplot(df, aes(x = .data[[v]])) +
-        geom_histogram(bins = 30, alpha = 0.9) +
+        geom_histogram(bins = 30, alpha = 0.9, fill = "#17a2b8") +
         labs(title = paste("Histogram of", v), x = v, y = "Count") +
         theme_light()
       plots[[v]] <- plotly::ggplotly(p)
     } else {
-      p <- ggplot(df, aes(x = as.factor(.data[[v]]))) +
+      p <- ggplot(df, aes(x = as.factor(.data[[v]]), fill = as.factor(.data[[v]]))) +
         geom_bar(alpha = 0.9) +
+        guides(fill = "none") +
         labs(title = paste("Bar chart of", v), x = v, y = "Count") +
         theme_light()
       plots[[v]] <- plotly::ggplotly(p)
@@ -100,15 +98,77 @@ covariate_plots <- function(df, arm_var = NULL) {
   plots
 }
 
-# ---------- Inline Rmd template (robust string formatting) ----------
-safe_chr <- function(x) {
-  if (is.null(x)) return("")
-  if (is.atomic(x)) return(paste(x, collapse = ", "))
-  if (is.function(x)) return("<function>")
-  if (is.list(x)) return(paste(purrr::map_chr(x, safe_chr), collapse = "; "))
-  paste(capture.output(str(x, max.level = 1)), collapse = " ")
+# Build a model.matrix column order from covariate definitions
+build_mm_columns <- function(cov_defs, include_intercept = TRUE) {
+  if (!length(cov_defs)) return(character(0))
+  # Construct a tiny data.frame that contains all factor levels (so model.matrix creates all columns)
+  rows <- 0
+  cols <- list()
+  for (d in cov_defs) {
+    if (d$type == "continuous") {
+      cols[[d$name]] <- 0
+    } else if (d$type == "categorical") {
+      lv <- d$params$labels
+      if (is.null(lv) || !length(lv)) {
+        # auto labels if not provided
+        k <- length(d$params$prob %||% c(0,1))
+        lv <- paste0(d$name, seq_len(k))
+      }
+      cols[[d$name]] <- factor(lv, levels = lv)
+      rows <- max(rows, length(lv))
+    }
+  }
+  # Recycle short columns to 'rows'
+  df <- as.data.frame(lapply(cols, function(x){
+    if (length(x) == 1) rep(x, max(1, rows)) else x
+  }), stringsAsFactors = FALSE)
+  form <- as.formula(paste0(if (include_intercept) "~ 1 +" else "~ -1 +",
+                            paste(vapply(cov_defs, function(d) d$name, character(1)), collapse = " + ")))
+  mm <- model.matrix(form, data = df)
+  colnames(mm)
 }
 
+# Coeff vector in model.matrix column order
+assemble_beta <- function(cov_defs, user_betas, include_intercept = TRUE, intercept_value = 0) {
+  # user_betas: named list: for continuous a single number; for categorical a numeric vector aligned to levels (K or K-1 depending on include_intercept)
+  cols <- build_mm_columns(cov_defs, include_intercept = include_intercept)
+  out <- numeric(0)
+  if (include_intercept) {
+    # the first column is "(Intercept)"
+    out <- c(out, user_betas[["(Intercept)"]] %||% intercept_value)
+  }
+  for (d in cov_defs) {
+    if (d$type == "continuous") {
+      b <- as.numeric(user_betas[[d$name]])
+      if (length(b) != 1 || !is.finite(b)) stop("Coefficient for continuous '", d$name, "' must be a single finite number.")
+      out <- c(out, b)
+    } else if (d$type == "categorical") {
+      lv <- d$params$labels
+      if (is.null(lv) || !length(lv)) {
+        k <- length(d$params$prob)
+        lv <- paste0(d$name, seq_len(k))
+      }
+      if (include_intercept) {
+        # K-1 betas, baseline is level 1
+        need <- length(lv) - 1
+        b <- as.numeric(user_betas[[d$name]])
+        if (length(b) < need) stop("Categorical '", d$name, "' requires ", need, " coefficients (intercept included).")
+        b <- b[seq_len(need)]
+        out <- c(out, b)
+      } else {
+        # K betas
+        need <- length(lv)
+        b <- as.numeric(user_betas[[d$name]])
+        if (length(b) < need) stop("Categorical '", d$name, "' requires ", need, " coefficients (no intercept).")
+        b <- b[seq_len(need)]
+        out <- c(out, b)
+      }
+    }
+  }
+  out
+}
+
+# Create an inline Rmd for both PDF and HTML — includes coefficients & provenance
 make_inline_template <- function() {
   tf <- tempfile(fileext = ".Rmd")
   txt <- c(
@@ -345,7 +405,6 @@ make_inline_template <- function() {
   tf
 }
 
-
 report_inputs_builder <- function(input) {
   list(
     model_selection = input$model_selection,
@@ -365,6 +424,7 @@ ui <- fluidPage(
   theme = bs_theme(version = 5, bootswatch = "flatly"),
   useShinyjs(),
   titlePanel("RMSTSS: Power and Sample Size Calculator"),
+  
   sidebarLayout(
     sidebarPanel(
       width = 4,
@@ -372,48 +432,58 @@ ui <- fluidPage(
       wellPanel(
         h4("Step 1. Upload/Generate Data"),
         radioButtons("data_mode", "Choose data source:", choices = c("Upload", "Generate"), inline = TRUE),
-        shinyjs::hidden(div(id = "upload_panel",
-                            fileInput("pilot_data_upload", "Upload Pilot Data (.csv)", accept = ".csv")
-        )),
-        shinyjs::hidden(div(id = "simulate_panel",
-                            h5("1a. Covariate Builder"),
-                            fluidRow(
-                              column(4, textInput("cov_name", "Name", value = "", placeholder = "x1, x2 … auto if empty")),
-                              column(4, selectInput("cov_type", "Type", choices = c("continuous","categorical","ordinal","bernoulli"))),
-                              column(4, uiOutput("cov_dist_ui"))
-                            ),
-                            fluidRow(
-                              column(8, uiOutput("cov_param_ui")),
-                              column(4, radioButtons("cov_transform", "Transform?", choices = c("No","Yes"), selected = "No"))
-                            ),
-                            shinyjs::hidden(div(id = "transform_row",
-                                                fluidRow(
-                                                  column(6, numericInput("tf_scale", "scale(b): divide by b", value = 1, min = 0.0001, step = 0.1)),
-                                                  column(6, helpText("Scaling is applied after generation: x / b"))
-                                                )
-                            )),
-                            actionButton("add_cov", "Add covariate", icon = icon("plus")),
-                            br(), br(),
-                            DTOutput("cov_table"),
-                            tags$hr(),
-                            h5("1b. Simulation Settings"),
-                            fluidRow(
-                              column(4, numericInput("sim_n", "Sample size", value = 300, min = 10)),
-                              column(4, numericInput("sim_treat_eff", "Treatment effect", value = -0.2, step = 0.05)),
-                              column(4, textInput("sim_allocation", "Allocation (a:b)", value = "1:1"))
-                            ),
-                            fluidRow(
-                              column(6, selectInput("sim_model", "Event-time model",
-                                                    choices = c("aft_lognormal","aft_weibull","ph_exponential","ph_weibull","ph_pwexp"))),
-                              column(6, sliderInput("sim_cens", "Target overall censoring", min = 0, max = 0.9, value = 0.25, step = 0.01))
-                            ),
-                            fluidRow(column(12, uiOutput("sim_baseline_ui"))),
-                            fluidRow(
-                              column(6, numericInput("sim_seed", "Seed (optional)", value = NA)),
-                              column(6, actionButton("generate_sim", "Generate Pilot Dataset", icon = icon("gears"), class = "btn btn-success"))
-                            )
+        shinyjs::hidden(div(id = "upload_panel", fileInput("pilot_data_upload", "Upload Pilot Data (.csv)", accept = ".csv"))),
+        shinyjs::hidden(div(
+          id = "simulate_panel",
+          h5("1a. Covariate Builder"),
+          # Row 1: name/type
+          fluidRow(
+            column(6, textInput("cov_name", "Variable name", value = "", placeholder = "x1, x2 … auto if empty")),
+            column(6, selectInput("cov_type", "Type", choices = c("continuous","categorical")))
+          ),
+          # Continuous vs Categorical UI
+          uiOutput("cov_details_ui"),
+          # Transform (continuous only)
+          shinyjs::hidden(div(id = "transform_block",
+                              tags$hr(),
+                              h5("Transform (continuous only)"),
+                              fluidRow(
+                                column(6, numericInput("tf_center", "Location (center a)", value = 0)),
+                                column(6, numericInput("tf_scale",  "Scale (divide by b)", value = 1, min = 0.0001, step = 0.1))
+                              ),
+                              helpText("Applied after generation: (x - a) / b")
+          )),
+          fluidRow(
+            column(6, actionButton("add_cov", "Add covariate", icon = icon("plus"), class = "btn btn-success")),
+            column(6, actionButton("reset_cov_builder", "Reset builder", icon = icon("trash")))
+          ),
+          br(), DTOutput("cov_table"),
+          tags$hr(),
+          h5("1b. Simulation Settings"),
+          fluidRow(
+            column(4, numericInput("sim_n", "Sample size", value = 300, min = 10)),
+            column(4, textInput("sim_allocation", "Allocation (a:b)", value = "1:1")),
+            column(4, numericInput("sim_treat_eff", "Treatment β (arm)", value = -0.2, step = 0.05))
+          ),
+          fluidRow(
+            column(6, checkboxInput("intercept_in_mm", "Include intercept in model.matrix (β0 inside β)", value = TRUE)),
+            column(6, numericInput("user_intercept", "β0 (used if no intercept in model.matrix)", value = 0))
+          ),
+          fluidRow(
+            column(6, selectInput("sim_model", "Event-time model",
+                                  choices = c("aft_lognormal","aft_weibull","ph_exponential","ph_weibull","ph_pwexp"))),
+            column(6, sliderInput("sim_cens", "Target censoring", min = 0, max = 0.9, value = 0.25, step = 0.01))
+          ),
+          fluidRow(column(12, uiOutput("sim_baseline_ui"))),
+          fluidRow(
+            column(4, numericInput("sim_seed", "Seed (optional)", value = NA)),
+            column(4, actionButton("generate_sim", "Generate Pilot Dataset", icon = icon("gears"), class = "btn btn-primary")),
+            column(4, actionButton("reset_generate", "Reset data", icon = icon("trash")))
+          )
         ))
       ),
+      
+      # Step 2+3: Model + Analysis (hidden until data ready)
       shinyjs::hidden(
         wellPanel(
           id = "model_analysis_panel",
@@ -424,24 +494,27 @@ ui <- fluidPage(
             column(4, selectInput("model_selection", "Select RMST Model",
                                   choices = c("Linear IPCW Model","Additive Stratified Model",
                                               "Multiplicative Stratified Model","Semiparametric (GAM) Model",
-                                              "Dependent Censoring Model"), selected = "Linear IPCW Model")),
+                                              "Dependent Censoring Model"),
+                                  selected = "Linear IPCW Model")),
             column(4, numericInput("L", "RMST L (τ)", value = 365, min = 1))
           ),
           uiOutput("analysis_inputs_ui"),
           sliderInput("alpha", "Significance Level (α)", min = 0.01, max = 0.1, value = 0.05, step = 0.01),
           tags$hr(),
           fluidRow(
-            column(6, actionButton("run_analysis", "Run Analysis", icon = icon("play"), class = "btn-primary btn-lg")),
-            column(6, shinyjs::hidden(
-              div(id="download_buttons",
+            column(4, actionButton("run_analysis", "Run Analysis", icon = icon("play"), class = "btn-primary btn-lg")),
+            column(8, shinyjs::hidden(
+              div(id="download_reset_row",
                   downloadButton("download_report_pdf", "Download PDF"),
-                  downloadButton("download_report_html", "Download HTML")
+                  downloadButton("download_report_html", "Download HTML"),
+                  actionButton("reset_all", "Reset All", icon = icon("trash"))
               )
             ))
           )
         )
       )
     ),
+    
     mainPanel(
       width = 8,
       tabsetPanel(
@@ -453,17 +526,19 @@ ui <- fluidPage(
                    tags$li("Step 1: Choose the data source."),
                    tags$ul(
                      tags$li("1a. Upload: Select a CSV file with pilot data."),
-                     tags$li("1b. Generate: Build covariates, select a survival model and censoring level, and run the simulation.")
+                     tags$li("1b. Generate: Build covariates, choose model and censoring, set coefficients and intercept, then simulate.")
                    ),
                    tags$li("Step 2 and Step 3: After data is available, map columns and select analysis settings."),
                    tags$ul(
                      tags$li("2a. Map the time, status, and treatment columns."),
-                     tags$li("2b. Choose the target (Power or Sample Size), method, and analysis parameters."),
+                     tags$li("2b. Choose the target (Power or Sample Size) and analysis parameters."),
                      tags$li("2c. Set the analysis horizon (τ) and the significance level (α).")
                    ),
-                   tags$li("Run the analysis and download a report in PDF or HTML.")
+                   tags$li("Run the analysis; download a report (PDF/HTML).")
                  ),
-                 hr(), h4("License Information"), verbatimTextOutput("license_display")
+                 hr(),
+                 h4("License Information"),
+                 verbatimTextOutput("license_display")
         ),
         tabPanel("Data Preview", DT::dataTableOutput("data_preview_table")),
         tabPanel("Plot Output",
@@ -495,18 +570,16 @@ ui <- fluidPage(
 # ------------------ Server ------------------
 server <- function(input, output, session) {
   bslib::bs_themer()
-  
-  # License (if present)
-  license_content <- tryCatch(paste(readLines("LICENSE"), collapse = "\n"),
-                              error = function(e) "LICENSE not found.")
+  license_content <- tryCatch(paste(readLines("LICENSE"), collapse = "\n"), error = function(e) "LICENSE not found.")
   output$license_display <- renderPrint({ cat(license_content) })
   
-  # State
   rv <- reactiveValues(
-    covariates = list(),
+    covariates = list(),          # defs with params+transform+beta (per var)
+    cat_rows = tibble::tibble(cat = character(), prob = numeric(), coef = numeric()), # current builder rows
     data_mode = "Upload",
     data_df = NULL,
-    data_source = NULL
+    data_source = NULL,
+    console_buf = character(0)
   )
   
   # Toggle Upload vs Generate
@@ -516,72 +589,111 @@ server <- function(input, output, session) {
     shinyjs::toggle(id = "simulate_panel", condition = input$data_mode == "Generate")
   }, ignoreInit = FALSE)
   
-  # Covariate UI: dist options
-  output$cov_dist_ui <- renderUI({
-    switch(input$cov_type %||% "continuous",
-           continuous = selectInput("cov_dist", "Distribution",
-                                    choices = c("normal","lognormal","gamma","weibull","uniform","t","beta")),
-           categorical = selectInput("cov_dist", "Distribution", choices = c("categorical")),
-           ordinal     = selectInput("cov_dist", "Distribution", choices = c("ordinal")),
-           bernoulli   = selectInput("cov_dist", "Distribution", choices = c("bernoulli"))
+  # ---------- Covariate details UI ----------
+  output$cov_details_ui <- renderUI({
+    if ((input$cov_type %||% "continuous") == "continuous") {
+      shinyjs::show("transform_block")
+      tagList(
+        fluidRow(
+          column(6, selectInput("cont_dist", "Distribution", choices = c("normal","lognormal","gamma","weibull","uniform","t","beta"))),
+          column(6, numericInput("cont_beta", "Coefficient β", value = 0))
+        ),
+        uiOutput("cont_param_ui")
+      )
+    } else {
+      shinyjs::hide("transform_block")
+      tagList(
+        fluidRow(
+          column(6, textInput("cat_add_name", "Add category name", placeholder = "auto if blank")),
+          column(3, numericInput("cat_add_prob", "Probability", value = NA, min = 0, max = 1, step = 0.01)),
+          column(3, numericInput("cat_add_coef", "Coefficient β", value = 0))
+        ),
+        fluidRow(
+          column(6, actionButton("add_cat_row", "Add category", icon=icon("plus"))),
+          column(6, actionButton("reset_cat_rows", "Reset categories", icon=icon("trash")))
+        ),
+        br(),
+        DTOutput("cat_table"),
+        helpText("Tip: If you include intercept in model.matrix, only K−1 coefficients are used (last level’s β is ignored).")
+      )
+    }
+  })
+  
+  # Continuous parameter UI
+  output$cont_param_ui <- renderUI({
+    switch(input$cont_dist %||% "normal",
+           normal = tagList(
+             numericInput("p_mean", "mean", value = 0),
+             numericInput("p_sd",   "sd", value = 1, min = 0)
+           ),
+           lognormal = tagList(
+             numericInput("p_meanlog", "meanlog", value = 0),
+             numericInput("p_sdlog",   "sdlog", value = 1, min = 0)
+           ),
+           gamma = tagList(
+             numericInput("p_shape", "shape", value = 2, min = 0.001),
+             numericInput("p_scale", "scale", value = 1, min = 0.0001)
+           ),
+           weibull = tagList(
+             numericInput("p_wshape", "shape", value = 1.5, min = 0.0001),
+             numericInput("p_wscale", "scale", value = 1, min = 0.0001)
+           ),
+           uniform = tagList(
+             numericInput("p_min", "min", value = 0),
+             numericInput("p_max", "max", value = 1)
+           ),
+           t = tagList(
+             numericInput("p_df", "df", value = 5, min = 1)
+           ),
+           beta = tagList(
+             numericInput("p_shape1", "shape1", value = 2, min = 0.0001),
+             numericInput("p_shape2", "shape2", value = 2, min = 0.0001)
+           )
     )
   })
   
-  # Covariate UI: params (grouped row)
-  output$cov_param_ui <- renderUI({
-    dist <- input$cov_dist %||% "normal"
-    div(style = "display:flex; gap:12px; flex-wrap: wrap;",
-        switch(dist,
-               normal = tagList(
-                 numericInput("p_mean", "mean", value = 0, width = "120px"),
-                 numericInput("p_sd",   "sd", value = 1, min = 0, width = "120px")
-               ),
-               lognormal = tagList(
-                 numericInput("p_meanlog", "meanlog", value = 0, width = "140px"),
-                 numericInput("p_sdlog",   "sdlog", value = 1, min = 0, width = "120px")
-               ),
-               gamma = tagList(
-                 numericInput("p_shape", "shape", value = 2, min = 0.001, width = "140px"),
-                 numericInput("p_scale", "scale", value = 1, min = 0.0001, width = "140px")
-               ),
-               weibull = tagList(
-                 numericInput("p_shape", "shape", value = 1.5, min = 0.0001, width = "140px"),
-                 numericInput("p_scale", "scale", value = 10, min = 0.0001, width = "140px")
-               ),
-               uniform = tagList(
-                 numericInput("p_min", "min", value = 0, width = "120px"),
-                 numericInput("p_max", "max", value = 1, width = "120px")
-               ),
-               t = tagList(
-                 numericInput("p_df", "df", value = 5, min = 1, width = "120px")
-               ),
-               beta = tagList(
-                 numericInput("p_shape1", "shape1", value = 2, min = 0.0001, width = "140px"),
-                 numericInput("p_shape2", "shape2", value = 2, min = 0.0001, width = "140px")
-               ),
-               categorical = tagList(
-                 textInput("p_prob", "probs (comma)", value = "0.5,0.5", width = "220px"),
-                 textInput("p_labels", "labels (comma, optional)", value = "", width = "280px")
-               ),
-               ordinal = tagList(
-                 textInput("p_prob", "probs (comma)", value = "0.3,0.4,0.3", width = "220px"),
-                 textInput("p_labels", "ordered labels (comma)", value = "Low,Medium,High", width = "280px")
-               ),
-               bernoulli = tagList(
-                 numericInput("p_p", "p", value = 0.5, min = 0, max = 1, step = 0.01, width = "120px")
-               )
-        )
-    )
+  # Category rows table & actions
+  observeEvent(input$add_cat_row, {
+    nm <- input$cat_add_name %||% ""
+    if (!nzchar(nm)) {
+      nm <- paste0("L", nrow(rv$cat_rows) + 1)
+    }
+    pr <- input$cat_add_prob
+    if (!is.na(pr) && (pr < 0 || pr > 1)) {
+      showNotification("Probability must be between 0 and 1.", type = "warning"); return()
+    }
+    cf <- input$cat_add_coef
+    if (!is.finite(cf)) {
+      showNotification("Coefficient must be numeric.", type = "warning"); return()
+    }
+    rv$cat_rows <- bind_rows(rv$cat_rows, tibble::tibble(cat = nm, prob = pr, coef = cf))
+  })
+  observeEvent(input$reset_cat_rows, { rv$cat_rows <- tibble::tibble(cat = character(), prob = numeric(), coef = numeric()) })
+  output$cat_table <- renderDT({
+    if (!nrow(rv$cat_rows)) {
+      DT::datatable(data.frame(Message="No categories yet — add rows above."), options = list(dom='t'), rownames = FALSE)
+    } else {
+      DT_25(rv$cat_rows)
+    }
   })
   
   # Transform visibility (continuous only)
   observe({
-    cont <- (input$cov_type == "continuous")
-    show_tf <- cont && identical(input$cov_transform, "Yes")
-    shinyjs::toggle(id = "transform_row", condition = show_tf)
+    shinyjs::toggle(id = "transform_block", condition = (input$cov_type %||% "") == "continuous")
   })
   
-  # Auto names x1, x2, …
+  # Reset builder
+  observeEvent(input$reset_cov_builder, {
+    updateTextInput(session, "cov_name", value = "")
+    updateSelectInput(session, "cov_type", selected = "continuous")
+    updateSelectInput(session, "cont_dist", selected = "normal")
+    updateNumericInput(session, "cont_beta", value = 0)
+    updateNumericInput(session, "tf_center", value = 0)
+    updateNumericInput(session, "tf_scale", value = 1)
+    rv$cat_rows <- tibble::tibble(cat = character(), prob = numeric(), coef = numeric())
+  })
+  
+  # Helper: auto covariate name x1, x2…
   next_cov_name <- reactive({
     nm <- input$cov_name
     if (nzchar(nm)) return(nm)
@@ -594,81 +706,92 @@ server <- function(input, output, session) {
     }
   })
   
-  # Add covariate
+  # Add covariate to list
   observeEvent(input$add_cov, {
-    req(input$cov_type, input$cov_dist)
-    name <- next_cov_name()
+    req(input$cov_type)
+    vname <- next_cov_name()
     
-    params <- switch(input$cov_dist,
+    if (input$cov_type == "continuous") {
+      # params
+      pars <- switch(input$cont_dist,
                      normal    = list(mean = input$p_mean, sd = input$p_sd),
                      lognormal = list(meanlog = input$p_meanlog, sdlog = input$p_sdlog),
                      gamma     = list(shape = input$p_shape,   scale = input$p_scale),
-                     weibull   = list(shape = input$p_shape,   scale = input$p_scale),
+                     weibull   = list(shape = input$p_wshape,  scale = input$p_wscale),
                      uniform   = list(min   = input$p_min,     max   = input$p_max),
                      t         = list(df    = input$p_df),
                      beta      = list(shape1 = input$p_shape1, shape2 = input$p_shape2),
-                     categorical = {
-                       prob <- suppressWarnings(as.numeric(trimws(strsplit(input$p_prob, ",")[[1]])))
-                       labels <- trimws(strsplit(input$p_labels, ",")[[1]])
-                       labels <- if (length(labels) == 1 && labels == "") NULL else labels
-                       list(prob = prob, labels = labels)
-                     },
-                     ordinal = {
-                       prob <- suppressWarnings(as.numeric(trimws(strsplit(input$p_prob, ",")[[1]])))
-                       labels <- trimws(strsplit(input$p_labels, ",")[[1]])
-                       if (length(labels) < length(prob)) labels <- as.character(seq_along(prob))
-                       list(prob = prob, labels = labels)
-                     },
-                     bernoulli = list(p = input$p_p),
                      list()
-    )
-    
-    transform <- NULL
-    if (input$cov_type == "continuous" && identical(input$cov_transform, "Yes")) {
-      transform <- c(sprintf("scale(%s)", input$tf_scale))
+      )
+      # transform
+      tf <- c(sprintf("center(%s)", input$tf_center), sprintf("scale(%s)", input$tf_scale))
+      # beta
+      if (!is.finite(as.numeric(input$cont_beta))) {
+        showNotification("Continuous coefficient must be a single number.", type = "error"); return()
+      }
+      rv$covariates <- c(rv$covariates, list(list(
+        name = vname, type = "continuous", dist = input$cont_dist, params = pars,
+        transform = tf, beta = as.numeric(input$cont_beta)
+      )))
+      
+    } else { # categorical
+      if (!nrow(rv$cat_rows)) { showNotification("Add at least one category.", type = "error"); return() }
+      cats <- rv$cat_rows$cat
+      # equal probs if any NA; otherwise use provided
+      prob <- rv$cat_rows$prob
+      if (any(is.na(prob))) prob[is.na(prob)] <- 1/length(prob)
+      if (any(prob < 0) || abs(sum(prob) - 1) > 1e-6) {
+        showNotification("Probabilities must be non-negative and sum to 1.", type = "error"); return()
+      }
+      coef <- rv$cat_rows$coef
+      if (any(!is.finite(coef))) { showNotification("All category coefficients must be numeric.", type="error"); return() }
+      
+      # dist decision: 2 cats -> bernoulli
+      if (length(cats) == 2) {
+        # define bernoulli for level2 probability
+        pars <- list(p = prob[2])
+        rv$covariates <- c(rv$covariates, list(list(
+          name = vname, type = "categorical", dist = "bernoulli",
+          params = pars, transform = NULL, beta = coef
+        )))
+      } else {
+        pars <- list(prob = prob, labels = cats)
+        rv$covariates <- c(rv$covariates, list(list(
+          name = vname, type = "categorical", dist = "categorical",
+          params = pars, transform = NULL, beta = coef
+        )))
+      }
     }
-    
-    rv$covariates <- c(rv$covariates, list(list(
-      name = name, type = input$cov_type, dist = input$cov_dist, params = params, transform = transform
-    )))
   })
   
-  # Covariate table
+  # Covariate list table
   output$cov_table <- renderDT({
     if (!length(rv$covariates)) return(DT_25(data.frame()))
     show <- purrr::map_df(rv$covariates, function(d) {
+      beta_txt <- if (length(d$beta)>1) paste(d$beta, collapse=", ") else as.character(d$beta)
       tibble::tibble(
         name = d$name, type = d$type, dist = d$dist,
         params = paste(names(d$params), unlist(d$params), sep="=", collapse="; "),
-        transform = paste(d$transform %||% character(0), collapse = ", ")
+        transform = paste(d$transform %||% character(0), collapse = ", "),
+        beta = beta_txt
       )
     })
     DT_25(show)
   })
   
-  # Baseline UI (grouped in one row)
+  # Baseline UI (grouped)
   output$sim_baseline_ui <- renderUI({
     pad <- function(x) div(style = "display:inline-block; margin-right:12px;", x)
     switch(input$sim_model %||% "aft_lognormal",
-           aft_lognormal = div(
-             pad(numericInput("b_mu", "mu", value = 2.3, width = "140px")),
-             pad(numericInput("b_sigma", "sigma", value = 0.5, min = 0.0001, width = "140px"))
-           ),
-           aft_weibull = div(
-             pad(numericInput("b_shape", "shape", value = 1.5, min = 0.0001, width = "160px")),
-             pad(numericInput("b_scale", "scale", value = 10, min = 0.0001, width = "160px"))
-           ),
-           ph_exponential = div(
-             pad(numericInput("b_rate", "rate", value = 0.05, min = 0.000001, width = "180px"))
-           ),
-           ph_weibull = div(
-             pad(numericInput("b_shape", "shape", value = 1.3, min = 0.0001, width = "160px")),
-             pad(numericInput("b_scale", "scale", value = 8, min = 0.0001, width = "160px"))
-           ),
-           ph_pwexp = div(
-             pad(textInput("b_rates", "rates (comma)", value = "0.05,0.02", width = "220px")),
-             pad(textInput("b_cuts",  "cuts (comma)",  value = "5", width = "180px"))
-           )
+           aft_lognormal = div(pad(numericInput("b_mu", "mu", value = 2.3)),
+                               pad(numericInput("b_sigma", "sigma", value = 0.5, min = 0.0001))),
+           aft_weibull   = div(pad(numericInput("b_shape", "shape", value = 1.5, min = 0.0001)),
+                               pad(numericInput("b_scale", "scale", value = 10,  min = 0.0001))),
+           ph_exponential= div(pad(numericInput("b_rate", "rate", value = 0.05, min = 0.000001))),
+           ph_weibull    = div(pad(numericInput("b_wshape2", "shape", value = 1.3, min = 0.0001)),
+                               pad(numericInput("b_wscale2", "scale", value = 8,   min = 0.0001))),
+           ph_pwexp      = div(pad(textInput("b_rates", "rates (comma)", value = "0.05,0.02")),
+                               pad(textInput("b_cuts",  "cuts (comma)",  value = "5")))
     )
   })
   
@@ -676,43 +799,79 @@ server <- function(input, output, session) {
   observeEvent(input$pilot_data_upload, {
     req(input$pilot_data_upload)
     df <- tryCatch(read.csv(input$pilot_data_upload$datapath, check.names = FALSE), error = function(e) NULL)
-    if (is.null(df) || !nrow(df)) {
-      showNotification("Error reading CSV or empty data.", type = "error")
-      return()
-    }
+    if (is.null(df) || !nrow(df)) { showNotification("Error reading CSV or empty data.", type = "error"); return() }
     rv$data_df <- df
     rv$data_source <- "uploaded"
     shinyjs::show(id = "model_analysis_panel")
     updateTabsetPanel(session, "main_tabs", selected = "Data Preview")
   })
   
+  # Reset data (generation card)
+  observeEvent(input$reset_generate, {
+    rv$data_df <- NULL; rv$data_source <- NULL
+    showNotification("Data reset.", type="message")
+  })
+  
   # Generate
   observeEvent(input$generate_sim, {
-    if (!length(rv$covariates)) {
-      showNotification("Please add at least one covariate before simulating.", type = "warning")
-      return()
+    if (!length(rv$covariates)) { showNotification("Please add at least one covariate before simulating.", type = "warning"); return() }
+    
+    # Validate coefficients lengths vs encoding
+    include_intercept <- isTRUE(input$intercept_in_mm)
+    # Build a clean copy of cov_defs for formula
+    cov_defs <- lapply(rv$covariates, function(d){
+      list(name = d$name, type = d$type, dist = d$dist, params = d$params, transform = d$transform)
+    })
+    
+    # Build user_betas
+    user_betas <- list()
+    if (include_intercept) user_betas[["(Intercept)"]] <- 0 # actual intercept comes from β vector of user per var, not b0
+    for (d in rv$covariates) {
+      if (d$type == "continuous") {
+        user_betas[[d$name]] <- as.numeric(d$beta)
+      } else {
+        # categorical
+        lv <- if (d$dist == "bernoulli") c("0","1") else (d$params$labels %||% paste0(d$name, seq_along(d$params$prob)))
+        need <- if (include_intercept) length(lv)-1 else length(lv)
+        if (length(d$beta) < need) {
+          showNotification(sprintf("'%s' needs %d coefficients but %d provided.", d$name, need, length(d$beta)), type="error")
+          return()
+        }
+        user_betas[[d$name]] <- as.numeric(d$beta)
+      }
     }
+    # Assemble beta in mm column order
+    beta_vec <- assemble_beta(cov_defs, user_betas, include_intercept = include_intercept, intercept_value = input$user_intercept)
+    mm_cols  <- build_mm_columns(cov_defs, include_intercept = include_intercept)
+    
+    # Baseline
     baseline <- switch(input$sim_model,
                        "aft_lognormal" = list(mu = input$b_mu, sigma = input$b_sigma),
                        "aft_weibull"   = list(shape = input$b_shape, scale = input$b_scale),
                        "ph_exponential"= list(rate = input$b_rate),
-                       "ph_weibull"    = list(shape = input$b_shape, scale = input$b_scale),
+                       "ph_weibull"    = list(shape = input$b_wshape2, scale = input$b_wscale2),
                        "ph_pwexp"      = {
                          rates <- suppressWarnings(as.numeric(trimws(strsplit(input$b_rates, ",")[[1]])))
                          cuts  <- trimws(strsplit(input$b_cuts, ",")[[1]])
                          cuts  <- if (length(cuts) == 1 && cuts == "") numeric(0) else suppressWarnings(as.numeric(cuts))
                          list(rates = rates, cuts = cuts)
-                       }
+                       })
+    
+    # Effects: formula includes or excludes intercept
+    form <- as.formula(paste0(if (include_intercept) "~ 1 +" else "~ -1 +",
+                              paste(vapply(cov_defs, function(d) d$name, character(1)), collapse = " + ")))
+    effects_list <- list(
+      intercept = if (include_intercept) 0 else input$user_intercept,
+      treatment = input$sim_treat_eff,
+      formula   = deparse(form),
+      beta      = beta_vec
     )
+    
     rec <- list(
       n = as.integer(input$sim_n),
-      covariates = list(defs = rv$covariates),
+      covariates = list(defs = cov_defs),
       treatment = list(assignment = "randomization", allocation = input$sim_allocation),
-      event_time = list(
-        model = input$sim_model,
-        baseline = baseline,
-        effects = list(intercept = 0, treatment = input$sim_treat_eff, covariates = NULL)
-      ),
+      event_time = list(model = input$sim_model, baseline = baseline, effects = effects_list),
       censoring = list(mode = "target_overall", target = input$sim_cens, admin_time = Inf),
       seed = if (is.na(input$sim_seed)) NULL else as.integer(input$sim_seed)
     )
@@ -720,10 +879,12 @@ server <- function(input, output, session) {
     buf <- capture.output({
       cat("---- Data Simulation ----\n")
       print(str(rec))
+      cat("Model matrix columns order:\n")
+      print(mm_cols)
+      cat("Beta vector:\n")
+      print(beta_vec)
     })
-    # append to a hidden store in session for report
-    if (is.null(session$userData$console_buf)) session$userData$console_buf <- character(0)
-    session$userData$console_buf <- c(session$userData$console_buf, buf)
+    rv$console_buf <- c(rv$console_buf, buf)
     
     dat <- tryCatch({
       simulate_from_recipe(rec, seed = rec$seed)
@@ -740,6 +901,22 @@ server <- function(input, output, session) {
     shinyjs::hide(id = "simulate_panel")
     shinyjs::show(id = "model_analysis_panel")
     updateTabsetPanel(session, "main_tabs", selected = "Data Preview")
+    
+    # keep provenance for report
+    rv$provenance <- list(
+      Source = "simulated",
+      Number_of_rows = nrow(dat),
+      Variable_names = names(dat),
+      Covariates_defined = lapply(rv$covariates, function(d) d),
+      Event_time = list(model = input$sim_model, baseline = baseline),
+      Treatment  = list(assignment = "randomization", allocation = input$sim_allocation),
+      Effects    = list(treatment = input$sim_treat_eff,
+                        intercept_report = if (include_intercept) "(in model.matrix β)" else input$user_intercept,
+                        intercept_in_mm = include_intercept,
+                        formula = deparse(form),
+                        mm_cols = mm_cols),
+      Censoring  = list(mode = "target_overall", target = input$sim_cens, admin_time = Inf)
+    )
   })
   
   # Column mapping
@@ -748,8 +925,8 @@ server <- function(input, output, session) {
     cn <- names(df)
     tagList(
       fluidRow(
-        column(4, selectInput("time_var", "Time-to-Event", choices = cn, selected = cn[1])),
-        column(4, selectInput("status_var", "Status (1=event)", choices = cn, selected = cn[min(2,length(cn))])),
+        column(4, selectInput("time_var", "Time-to-Event", choices = cn, selected = "time" %||% cn[1])),
+        column(4, selectInput("status_var", "Status (1=event)", choices = cn, selected = "status" %||% cn[min(2,length(cn))])),
         column(4, selectInput("arm_var", "Treatment Arm (1=treat)", choices = cn,
                               selected = if ("arm" %in% cn) "arm" else cn[min(3,length(cn))]))
       )
@@ -766,10 +943,7 @@ server <- function(input, output, session) {
   })
   
   # Data Preview
-  output$data_preview_table <- DT::renderDataTable({
-    req(rv$data_df)
-    DT_25(rv$data_df)
-  })
+  output$data_preview_table <- DT::renderDataTable({ req(rv$data_df); DT_25(rv$data_df) })
   
   # Covariate plots
   output$cov_plots_ui <- renderUI({
@@ -784,11 +958,7 @@ server <- function(input, output, session) {
     req(rv$data_df)
     plots <- covariate_plots(rv$data_df, arm_var = input$arm_var)
     lapply(names(plots), function(nm) {
-      local({
-        id <- paste0("cov_plot_", nm)
-        p  <- plots[[nm]]
-        output[[id]] <- renderPlotly({ p })
-      })
+      local({ id <- paste0("cov_plot_", nm); p <- plots[[nm]]; output[[id]] <- renderPlotly({ p }) })
     })
   })
   
@@ -830,7 +1000,7 @@ server <- function(input, output, session) {
         })
         setProgress(0.8, detail = "Computing power curve (placeholder)…")
         results_plot <- ggplot(data.frame(n = c(100,150,200), power = c(0.72,0.81,0.88)),
-                               aes(n, power)) + geom_line() + geom_point() +
+                               aes(n, power)) + geom_line(color="#17a2b8") + geom_point(color="#d9534f") +
           labs(x = "Sample size per arm", y = "Power") + theme_light()
         results_data <- data.frame(N_per_arm = c(100,150,200), Power = c(0.72,0.81,0.88))
         results_summary <- data.frame(
@@ -854,7 +1024,7 @@ server <- function(input, output, session) {
   
   observeEvent(run_analysis_results(), {
     run_output(run_analysis_results())
-    shinyjs::show(id = "download_buttons")
+    shinyjs::show(id = "download_reset_row")
     updateTabsetPanel(session, "main_tabs", selected = "Summary")
   })
   
@@ -875,11 +1045,7 @@ server <- function(input, output, session) {
     )
     ggplotly(p$plot)
   })
-  
-  output$results_plot <- renderPlotly({
-    req(run_output()$results$results_plot)
-    plotly::ggplotly(run_output()$results$results_plot, tooltip = c("x","y"))
-  })
+  output$results_plot <- renderPlotly({ req(run_output()$results$results_plot); plotly::ggplotly(run_output()$results$results_plot, tooltip = c("x","y")) })
   
   # Summary (tables only)
   output$results_table_ui <- renderUI({
@@ -903,48 +1069,34 @@ server <- function(input, output, session) {
     if (!is.null(sm$continuous) && nrow(sm$continuous)) {
       ui <- tagAppendChildren(ui,
                               h5("Continuous covariates"),
-                              sm$continuous %>% kbl("html") %>%
-                                kable_styling(bootstrap_options = c("striped","hover"), full_width = FALSE) %>% HTML()
+                              sm$continuous %>% kbl("html") %>% kable_styling(bootstrap_options = c("striped","hover"), full_width = FALSE) %>% HTML()
       )
     }
     if (!is.null(sm$categorical) && nrow(sm$categorical)) {
       ui <- tagAppendChildren(ui,
-                              h5("Categorical and ordinal covariates"),
-                              sm$categorical %>% kbl("html") %>%
-                                kable_styling(bootstrap_options = c("striped","hover"), full_width = FALSE) %>% HTML()
+                              h5("Categorical covariates"),
+                              sm$categorical %>% kbl("html") %>% kable_styling(bootstrap_options = c("striped","hover"), full_width = FALSE) %>% HTML()
       )
     }
-    if (length(ui$children) == 0) HTML("<em>No covariate tables are available.</em>") else ui
+    ui
   })
   
   # Console log (text only)
-  output$console_log_output <- renderText({
-    paste(console_log(), collapse = "\n")
-  })
+  output$console_log_output <- renderText({ paste(console_log(), collapse = "\n") })
   
-  # -------- Downloads (PDF & HTML) --------
+  # ------------------ Downloads (PDF & HTML) ------------------
   data_provenance <- reactive({
-    list(
-      Source = rv$data_source %||% "unknown",
-      Number_of_rows = nrow(rv$data_df %||% data.frame()),
-      Variable_names = names(rv$data_df %||% data.frame()),
-      Covariates_defined = lapply(rv$covariates, function(d) d[c("name","type","dist","params","transform")]),
-      Event_time = list(model = input$sim_model %||% NA_character_,
-                        baseline = list(
-                          mu = input$b_mu %||% NULL, sigma = input$b_sigma %||% NULL,
-                          shape = input$b_shape %||% NULL, scale = input$b_scale %||% NULL,
-                          rate = input$b_rate %||% NULL,
-                          rates = if (!is.null(input$b_rates)) strsplit(input$b_rates, ",")[[1]] else NULL,
-                          cuts  = if (!is.null(input$b_cuts))  strsplit(input$b_cuts,  ",")[[1]] else NULL
-                        )),
-      Treatment = list(assignment = "randomization", allocation = input$sim_allocation %||% NA_character_),
-      Effects = list(intercept = 0, treatment = input$sim_treat_eff %||% NA_real_),
-      Strata = NULL,
-      Censoring = list(mode = "target_overall", target = input$sim_cens %||% NA_real_, admin_time = "Inf"),
-      Frailty = NULL
-    )
+    prov <- rv$provenance
+    if (is.null(prov) && !is.null(rv$data_df)) {
+      prov <- list(
+        Source = rv$data_source %||% "uploaded",
+        Number_of_rows = nrow(rv$data_df),
+        Variable_names = names(rv$data_df),
+        Covariates_defined = if (rv$data_source == "simulated") lapply(rv$covariates, function(d) d) else list()
+      )
+    }
+    prov
   })
-  
   get_pilot_data <- reactive({ rv$data_df })
   
   output$download_report_pdf <- downloadHandler(
@@ -972,13 +1124,12 @@ server <- function(input, output, session) {
       )
     }
   )
-  
   output$download_report_html <- downloadHandler(
     filename = function() paste0("RMSTSS_report_", Sys.Date(), ".html"),
-    contentType = "application/html",
+    contentType = "text/html",
     content = function(file) {
       req(run_output()$results)
-      id <- showNotification("Generating HTML report…", type = "message", duration = NULL, closeButton = FALSE)
+      id <- showNotification("Generating HTML report…", type="message", duration = NULL, closeButton = FALSE)
       on.exit(removeNotification(id), add = TRUE)
       tpl <- make_inline_template()
       rmarkdown::render(
@@ -993,18 +1144,29 @@ server <- function(input, output, session) {
           data_provenance = data_provenance(),
           data            = get_pilot_data()
         ),
-        envir = new.env(parent = globalenv()),
-        clean = TRUE
+        envir         = new.env(parent = globalenv()),
+        clean         = TRUE
       )
     }
   )
-  
   
   # Reveal Step2+3 when data is present; hide simulate after success
   observe({
     shinyjs::toggle(id = "model_analysis_panel", condition = !is.null(rv$data_df))
     shinyjs::toggle(id = "simulate_panel", condition = is.null(rv$data_df) && rv$data_mode == "Generate")
     shinyjs::toggle(id = "upload_panel",   condition = is.null(rv$data_df) && rv$data_mode == "Upload")
+  })
+  
+  # Reset all (appears after analysis)
+  observeEvent(input$reset_all, {
+    # wipe everything except sourced functions
+    rv$covariates <- list()
+    rv$cat_rows <- tibble::tibble(cat = character(), prob = numeric(), coef = numeric())
+    rv$data_df <- NULL; rv$data_source <- NULL; rv$console_buf <- character(0); rv$provenance <- NULL
+    shinyjs::hide("download_reset_row")
+    shinyjs::show("simulate_panel")
+    updateTabsetPanel(session, "main_tabs", selected = "Instructions")
+    showNotification("All inputs reset.", type="message")
   })
 }
 options(shiny.launch.browser = TRUE)
