@@ -10,7 +10,7 @@ This repository contains the source code for the `RMSTdesign` web application, a
 
 The easiest way to use the calculator is to access the live, deployed version directly in your web browser. No installation is required.
 
-### **[âž¡ï¸ Access the Live Application Here](https://arnab96.shinyapps.io/uthsc-app/)**
+### **[Access the Live Application Here](https://arnab96.shinyapps.io/uthsc-app/)**
 
 -----
 
