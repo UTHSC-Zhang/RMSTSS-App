@@ -525,7 +525,7 @@ ui <- fluidPage(
                  h4("Analysis Results (Tables Only)"),
                  uiOutput("results_table_ui"),
                  hr(),
-                 h4("Effect Size Summary"),
+                 h4("Analysis Summary"),
                  uiOutput("summary_table_ui"),
                  hr(),
                  h4("Data Summary"),
