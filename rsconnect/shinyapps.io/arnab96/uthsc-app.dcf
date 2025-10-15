@@ -5,7 +5,7 @@ account: arnab96
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 15031600
-bundleId: 11029276
+bundleId: 11035756
 url: https://arnab96.shinyapps.io/uthsc-app/
 version: 1
 asMultiple: FALSE

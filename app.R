@@ -358,7 +358,6 @@ make_inline_template <- function() {
   writeLines(txt, tf)
   tf
 }
-
 report_inputs_builder <- function(input) {
   list(
     model_selection = input$model_selection,
@@ -367,7 +366,7 @@ report_inputs_builder <- function(input) {
     status_var      = input$status_var,
     arm_var         = input$arm_var,
     strata_var      = input$strata_var %||% "",
-    dep_cens_var    = input$dep_cens_var %||% "",
+    dc_linear_terms = input$dc_linear_terms %||% character(0),  # ← added
     calc_method     = input$calc_method %||% "Analytical",
     L               = input$L,
     alpha           = input$alpha,
@@ -375,6 +374,8 @@ report_inputs_builder <- function(input) {
     target_power    = input$target_power
   )
 }
+
+
 
 # ------------------ UI ------------------
 ui <- fluidPage(
@@ -1000,31 +1001,84 @@ server <- function(input, output, session) {
   output$col_mapping_ui <- renderUI({
     df <- rv$data_df; req(df)
     cn <- names(df)
-    needs_strata <- (input$model_selection %in% c("Additive Stratified Model","Multiplicative Stratified Model"))
+    
+    # Which models need extra fields?
+    needs_strata <- (input$model_selection %in% c("Additive Stratified Model", "Multiplicative Stratified Model"))
     needs_dep    <- (input$model_selection %in% c("Dependent Censoring Model"))
+    
+    # Safe defaults for the core mappings
+    default_time   <- if ("time"   %in% cn) "time"   else cn[1]
+    default_status <- if ("status" %in% cn) "status" else cn[min(2, length(cn))]
+    default_arm    <- if ("arm"    %in% cn) "arm"    else cn[min(3, length(cn))]
+    
     tagList(
+      # Base mappings: time / status / arm
       fluidRow(
-        column(4, selectInput("time_var", "Time-to-Event", choices = cn,
-                              selected = if ("time" %in% cn) "time" else cn[1])),
-        column(4, selectInput("status_var", "Status (1=event)", choices = cn,
-                              selected = if ("status" %in% cn) "status" else cn[min(2,length(cn))])),
-        column(4, selectInput("arm_var", "Treatment Arm (1=treat)", choices = cn,
-                              selected = if ("arm" %in% cn) "arm" else cn[min(3,length(cn))]))
+        column(
+          4,
+          selectInput(
+            "time_var", "Time-to-Event",
+            choices = cn, selected = default_time
+          )
+        ),
+        column(
+          4,
+          selectInput(
+            "status_var", "Status (1=event)",
+            choices = cn, selected = default_status
+          )
+        ),
+        column(
+          4,
+          selectInput(
+            "arm_var", "Treatment Arm (1=treat)",
+            choices = cn, selected = default_arm
+          )
+        )
       ),
+      
+      # Stratification (if applicable)
       if (needs_strata) {
-        fluidRow(
-          column(6, selectInput("strata_var", "Stratification Variable", choices = cn,
-                                selected = setdiff(cn, c(input$time_var, input$status_var, input$arm_var))[1]))
-        )
+        fluidRow({
+          cand_strata <- setdiff(cn, unique(na.omit(c(input$time_var, input$status_var, input$arm_var))))
+          default_strata <- if (length(cand_strata)) cand_strata[1] else NULL
+          column(
+            6,
+            selectInput(
+              "strata_var", "Stratification Variable",
+              choices = cand_strata, selected = default_strata
+            )
+          )
+        })
       },
+      
+      # Dependent censoring (linear terms for Cox G-model; no arm, no status)
       if (needs_dep) {
-        fluidRow(
-          column(6, selectInput("dep_cens_var", "Dependent Censoring Status", choices = cn,
-                                selected = setdiff(cn, c(input$time_var, input$status_var, input$arm_var, input$strata_var))[1]))
-        )
+        fluidRow({
+          cand_dep <- setdiff(
+            cn,
+            unique(na.omit(c(input$time_var, input$status_var, input$arm_var, input$strata_var)))
+          )
+          def_dep <- intersect(c("age", "sex", "x"), cand_dep)
+          if (!length(def_dep)) def_dep <- NULL
+          
+          column(
+            12,
+            selectizeInput(
+              "dc_linear_terms",
+              "Covariates for censoring Cox model (linear terms)",
+              choices  = cand_dep,
+              selected = def_dep,
+              multiple = TRUE,
+              options  = list(placeholder = "Choose 0+ covariates")
+            ),
+            helpText("Censoring model: Surv(time, status == 0) ~ <selected terms>. Treatment is excluded.")
+          )
+        })
       }
     )
   })
+  
   
   # Analysis inputs
   output$analysis_inputs_ui <- renderUI({
@@ -1084,12 +1138,6 @@ server <- function(input, output, session) {
             (input$model_selection %in% c("Additive Stratified Model","Multiplicative Stratified Model"))) {
           analysis_data$stratum <- as.factor(rv$data_df[[input$strata_var]])
         }
-        # Dependent censoring variable available but not directly used in log-rank; retained for models that need it
-        if (!is.null(input$dep_cens_var) && nzchar(input$dep_cens_var) &&
-            (input$model_selection %in% c("Dependent Censoring Model"))) {
-          analysis_data$dep_cens_status <- rv$data_df[[input$dep_cens_var]]
-        }
-        
         # ----- Log-rank (stratified if applicable) -----
         setProgress(0.5, detail = "Log-rank test...")
         logrank_summary_df <- NULL
@@ -1170,16 +1218,61 @@ server <- function(input, output, session) {
             }
           }
         } else {
-          # Analytical placeholder (keep your original behavior but prettier points/lines)
-          if (input$analysis_type == "Power") {
-            dfp <- data.frame(N_per_arm = c(100,150,200), Power = c(0.72,0.81,0.88))
-            results_plot <- make_power_plot(dfp, "analytical")
-            results_data <- dfp
+          # ----- ANALYTICAL BRANCH -----
+          if (input$model_selection == "Dependent Censoring Model") {
+            # Use the new DC analytic helpers
+            if (input$analysis_type == "Power") {
+              n_vec <- as.numeric(trimws(strsplit(input$sample_sizes, ",")[[1]]))
+              n_vec <- n_vec[is.finite(n_vec) & n_vec > 0]
+              if (!length(n_vec)) n_vec <- c(100,150,200)
+              
+              dc <- DC.power.analytical.app(
+                pilot_data          = rv$data_df,
+                time_var            = input$time_var,
+                status_var          = input$status_var,
+                arm_var             = input$arm_var,
+                dep_cens_status_var = NULL,  # ignored by the estimator
+                sample_sizes        = n_vec,
+                linear_terms        = input$dc_linear_terms %||% character(0),
+                L                   = input$L,
+                alpha               = input$alpha
+              )
+              results_plot    <- dc$results_plot
+              results_data    <- dc$results_data
+              results_summary <- dc$results_summary
+              
+            } else {
+              dc <- DC.ss.analytical.app(
+                pilot_data          = rv$data_df,
+                time_var            = input$time_var,
+                status_var          = input$status_var,
+                arm_var             = input$arm_var,
+                dep_cens_status_var = NULL,  # ignored by the estimator
+                target_power        = input$target_power,
+                linear_terms        = input$dc_linear_terms %||% character(0),
+                L                   = input$L,
+                alpha               = input$alpha,
+                n_start             = 50,
+                n_step              = 25,
+                max_n_per_arm       = 2000
+              )
+              results_plot    <- dc$results_plot
+              results_data    <- dc$results_data
+              results_summary <- dc$results_summary
+            }
+            
           } else {
-            grid <- data.frame(N_per_arm = c(120, 160, 200), Power = c(0.70, 0.80, 0.87))
-            results_plot <- make_power_plot(grid, "analytical") +
-              geom_hline(yintercept = input$target_power, linetype = 2)
-            results_data <- grid
+            # Keep your existing simple placeholder for other models
+            if (input$analysis_type == "Power") {
+              dfp <- data.frame(N_per_arm = c(100,150,200), Power = c(0.72,0.81,0.88))
+              results_plot <- make_power_plot(dfp, "analytical")
+              results_data <- dfp
+            } else {
+              grid <- data.frame(N_per_arm = c(120, 160, 200), Power = c(0.70, 0.80, 0.87))
+              results_plot <- make_power_plot(grid, "analytical") +
+                geom_hline(yintercept = input$target_power, linetype = 2)
+              results_data <- grid
+            }
           }
         }
         
